@@ -1,0 +1,241 @@
+---
+description: GeoCrossBench / χViT project knowledge — architecture, finetuning pipeline, datasets, evaluation, and band conventions
+alwaysApply: true
+---
+
+# GeoCrossBench / χViT — Project Knowledge
+
+## What This Project Is
+
+This is the codebase for the paper **GeoCrossBench: Cross-Band Generalization for Remote Sensing** (YerevaNN / UBC / Vector Institute). It evaluates how well remote sensing foundation models generalize across spectral bands (optical → SAR, RGB → multispectral superset, etc.) and introduces **χViT (ChiViT)**, a ChannelViT variant pretrained with iBOT self-distillation that achieves best cross-band transfer.
+
+---
+
+## Repository Layout
+
+```
+rs_pretrain/          # Self-supervised pretraining (iBOT-style) for χViT
+  main_ibot_it.py     # Multi-dataset iterative pretraining entry point
+  chivit_pretrain.py  # Single-dataset iBOT pretraining
+  models/             # ViT, ChannelViT (hcs_channel_vit.py), heads, decoder
+  dataset/            # NAIP, Sentinel-1/2, MillionAid, HDF5 loaders
+
+rs_finetune/          # ★ FINETUNING & EVALUATION — primary working area
+  train_classifier.py # Classification finetuning (PyTorch Lightning)
+  train_segmenter.py  # Semantic segmentation (UPerNet/Unet, DDP)
+  train_change.py     # Change detection (UPerNet siamese, DDP)
+  eval_bands_cls.py   # Cross-band evaluation — classification
+  eval_bands_seg.py   # Cross-band evaluation — segmentation
+  eval_bands_cd.py    # Cross-band evaluation — change detection
+  classifier_utils.py # Encoder loading, conv-layer adaptation for multiband
+  utils.py            # Band ordering, collate functions, seeding
+  configs/            # JSON configs (model configs + dataset configs)
+  change_detection_pytorch/
+    encoders/         # All encoder wrappers (iBOT, χViT, DINOv2/v3, Prithvi, TerraFM, DOFA, AnySat, CROMA, Swin, timm)
+    datasets/         # Dataset classes (BEN, EuroSAT, So2Sat, Harvey, Sen1Floods11, OSCD, etc.)
+    losses/           # Loss implementations
+    upernet/          # UPerNet decoder
+```
+
+---
+
+## Finetuning Pipeline (Critical Path)
+
+### Three Task Types
+
+| Task | Script | Decoder | Distributed | Framework |
+|------|--------|---------|-------------|-----------|
+| Classification | `train_classifier.py` | Linear head | PyTorch Lightning (multi-GPU via `--device`) | PL Trainer |
+| Segmentation | `train_segmenter.py` | UPerNet or Unet | DDP (`torchrun`) | Manual loop |
+| Change Detection | `train_change.py` | UPerNet (siamese) | DDP (`torchrun`) | Manual loop |
+
+### Configuration System
+
+Two JSON config files per run: **model config** + **dataset config** from `rs_finetune/configs/`.
+
+Model config fields: `backbone`, `encoder_weights`, `in_features`, `fill_zeros`, `in_channels`.
+Dataset config fields: `dataset_name`, `num_classes`, `image_size`, `batch_size`, `base_dir`, `splits_dir`.
+
+### Encoder Loading (`classifier_utils.py:load_encoder`)
+
+All encoders are loaded through `load_encoder(encoder_name, encoder_weights, ...)`. The function dispatches on encoder name:
+- `ibot-*` → `vit_encoders` dict, loads state_dict from teacher checkpoint
+- `cvit-pretrained` → `chi_vit_encoders` dict, loads iBOT teacher weights; supports `shared_proj`, `add_ch_embed`, `enable_sample`
+- `dinov2` → `torch.hub.load('facebookresearch/dinov2', 'dinov2_vitb14')`
+- `dinov3` → `AutoModel.from_pretrained("facebook/dinov3-vitb16-pretrain-lvd1689m")`
+- `terrafm` → `terrafm_encoders` dict
+- `dofa`, `prithvi`, `croma`, `anysat`, `clay` → respective encoder dicts
+- `swin-B` → Swin-V2-B, with satlas/geopile weights
+- `timm_*` → timm ViT-B or ResNet50
+
+### Multiband Input Adaptation
+
+When `--enable_multiband_input` is set, the first conv/patch_embed layer is adapted:
+- `adapt_rgb_conv_layer_to_multiband`: averages pretrained weights across RGB, replicates to N channels, divides by N
+- `adapt_rgb_conv_layer_to_multiband_preserve_rgb`: keeps original RGB weights, initializes new channels with average (used at eval time via `--preserve_rgb_weights`)
+
+### Key Finetuning Hyperparameters (from paper)
+
+- Optimizer: AdamW (eps=1e-8, betas=(0.9,0.999))
+- LR schedule: 20-epoch linear warmup → cosine decay
+- Classification: 30 decay epochs, batch_size=64
+- Segmentation/Change Detection: 80 decay epochs, batch_size=8
+- Weight decay: 0.05 (classification), 0.01 (seg/CD)
+- Model selection: best validation metric checkpoint
+- Full fine-tuning LR grid: {1,3,6}×{1e-5,1e-4,1e-3}
+- Frozen encoder LR grid: {1,3,4,5}×{1e-4,1e-3,1e-2,1e-1}
+- UPerNet width grid: {1,2,3}×256
+
+### Two Fine-tuning Modes
+- **Full fine-tuning**: all parameters updated (default)
+- **Frozen backbone**: only head/decoder trained (`--only_head` for cls, `--freeze_encoder` for seg/CD)
+
+---
+
+## Band System
+
+### Sentinel-2 Bands Used (10 bands, ≤20m resolution)
+`B2, B3, B4, B5, B6, B7, B8, B8A, B11, B12`
+
+### Sentinel-1 SAR Bands
+`VV, VH` (dual-polarization, absolute values)
+
+### Standard Band Orderings (from `utils.py`)
+- Default: `['B02','B03','B04','B05','B06','B07','B08','B8A','B11','B12','VH','VV']`
+- χViT pretrained: `['B04','B03','B02','B05','B06','B07','B08','B8A','B11','B12','VV','VH']` (RGB reversed)
+- ChannelViT (so2sat): `['B02','B03','B04','B05','B06','B07','B08','B8A','B11','B12','VH','VH','VV','VV']` (duplicated SAR)
+- CROMA: includes B01, B09
+- Satlas: excludes B8A → `['B02','B03','B04','B05','B06','B07','B08','B11','B12']`
+- Prithvi: 6 bands → `['B02','B03','B04','B8A','B11','B12']`
+
+**CRITICAL**: Band ordering varies per model. Always use `get_band_orders(model_name)` from `utils.py`.
+
+---
+
+## GeoCrossBench Evaluation Protocol
+
+### Three Settings
+1. **In-Distribution**: train RGB→test RGB; train S2→test S2
+2. **No-Overlap**: train RGB→test S1; train S2→test S1; train RGB→test N'S1S2 (B8A,B11,B12)
+3. **Superset**: train RGB→test RGBN (RGB+B8); train S2→test S2+S1
+
+### Evaluation Scripts
+- `eval_bands_cls.py`: takes `--model_config`, `--dataset_config`, `--checkpoint_path`, `--bands` (JSON array of band combos)
+- `eval_bands_seg.py` / `eval_bands_cd.py`: similar interface
+- `--sar` flag for SAR-specific evaluation path in cls
+
+### Metrics
+- Classification: Accuracy (So2Sat, EuroSAT, BrickKiln), F1Score (BigEarthNet)
+- Segmentation: mIoU (Cashew, SA-Crop, Sen1Floods11), bIoU minority class (Harvey-Building)
+- Change Detection: bIoU minority class (Harvey-Flood), F1Score (OSCD)
+
+---
+
+## GeoCrossBench Datasets (10 total)
+
+| Dataset | Task | Size | Classes | Notes |
+|---------|------|------|---------|-------|
+| x-bigearthnet | Classification | 120×120 | 43 | Multi-label |
+| x-so2sat | Classification | 32×32 | 17 | |
+| x-brick-kiln | Classification | 64×64 | 2 | |
+| x-eurosat | Classification | 64×64 | 10 | |
+| x-cashew-plantation | Segmentation | 256×256 | 7 | |
+| x-SA-crop-type | Segmentation | 256×256 | 10 | |
+| x-harvey-building | Segmentation | 256×256 | 2 | New |
+| x-sen1floods11 | Segmentation | 512×512 | 2 | New |
+| x-harvey-flood | Change Detection | 256×256 | 2 | New |
+| x-oscd | Change Detection | 224×224 | 2 | New, city-level splits |
+
+All datasets: 10 S2 bands + 2 S1 bands = 12 bands per sample.
+
+---
+
+## Models Evaluated (ranked by overall GeoCrossBench score)
+
+1. **χViT** (44.51) — best cross-band generalization, ChannelViT + iBOT, pretrained on 23M images
+2. **DINOv3** (42.88) — general-purpose, competitive in-distribution
+3. **iBOT** (42.32) — best in-distribution (64.73 RGB)
+4. **ViT-B** (41.22) — ImageNet pretrained baseline
+5. **DINOv2** (41.16) — best in-distribution average (63.89)
+6-24. DOFA, TerraFM, SatlasNet, CROMA, Prithvi, AnySat, ResNet50 (all weaker)
+
+Key finding: RS-specific models do NOT outperform general-purpose models in-distribution. χViT wins only in cross-band scenarios due to channel-wise tokenization + hierarchical channel sampling during pretraining.
+
+---
+
+## Superset Setup & Metrics (Paper Analysis)
+
+### Superset Definition
+Test-time inputs have **strictly more bands** than training. Simulates legacy models operating on newer sensors with additional bands.
+
+### Superset Configurations
+
+| Train on | Evaluate on | Description |
+|----------|-------------|-------------|
+| RGB | RGBN | 3-band optical → 4-band (adds NIR, S2 B8) |
+| S2 | S2+S1 | 10-band multispectral → 12-band optical+SAR (adds VV, VH) |
+
+### Superset Finding
+Models degrade **5–25%** on average when given additional bands at test time. Architectures overfit to input channel count/distribution and fail to integrate novel spectral information without fine-tuning.
+
+### Superset Rankings (full fine-tuning)
+
+| Rank | Model | RGB | S2 | RGB→RGBN | S2→S2+S1 | Superset AVG |
+|------|-------|-----|-----|----------|----------|--------------|
+| 1 | χViT | 61.81 | 63.53 | 59.03 | 57.96 | 58.49 |
+| 2 | DINOv3 | 62.46 | 63.0 | 52.48 | 59.62 | 56.05 |
+| 3 | iBOT | 64.73 | 61.73 | 52.36 | 57.04 | 54.70 |
+| 4 | ViT-B | 62.77 | 62.72 | 46.03 | 58.23 | 52.13 |
+| 5 | DINOv2 | 65.26 | 62.53 | 54.52 | 47.59 | 51.06 |
+
+DINOv3 strong on S2→S2+S1 (59.62) but weaker on RGB→RGBN (52.48). DINOv2 opposite. χViT best on both. AnySat/Prithvi worst in superset.
+
+### Metrics by Task and Dataset
+
+| Task | Dataset | Metric | Notes |
+|------|---------|--------|-------|
+| Classification | x-bigearthnet | F1Score | Multi-label |
+| Classification | x-so2sat | Accuracy | |
+| Classification | x-eurosat | Accuracy | |
+| Classification | x-brick-kiln | Accuracy | |
+| Segmentation | x-cashew-plantation | mIoU | |
+| Segmentation | x-SA-crop-type | mIoU | |
+| Segmentation | x-sen1floods11 | mIoU | |
+| Segmentation | x-harvey-building | bIoU | Minority class only (imbalanced) |
+| Change Detection | x-harvey-flood | bIoU | Minority class only |
+| Change Detection | x-oscd | F1Score | |
+
+bIoU = balanced IoU for minority class; used when classes are highly imbalanced to avoid misleading mIoU from majority-only predictions.
+
+### Overall GeoCrossBench Ranking (In-Dist + No-Overlap + Superset)
+
+| Rank | Model | In-Dist | No-Overlap | Superset | Overall |
+|------|-------|---------|------------|----------|---------|
+| 1 | χViT | 62.67 | 23.09 | 58.49 | 44.51 |
+| 2 | DINOv3 | 62.73 | 20.86 | 56.05 | 42.88 |
+| 3 | iBOT | 63.23 | 20.13 | 54.70 | 42.32 |
+| 4 | ViT-B | 62.75 | 19.60 | 52.13 | 41.22 |
+| 5 | DINOv2 | 63.89 | 19.41 | 51.06 | 41.16 |
+
+Frozen backbones (`model'`) generally underperform full fine-tuning in superset.
+
+---
+
+## Checkpoints and Paths
+
+Checkpoints are saved to NFS paths:
+- Classification: `/nfs/ap/mnt/frtn/ckpt_rs_finetune/classification/{experiment_name}/`
+- Segmentation: `/nfs/ap/mnt/frtn/rs-multiband/ckpt_rs_finetune/segmentation/{experiment_name}/`
+- Change Detection: `/nfs/ap/mnt/frtn/rs-multiband/ckpt_rs_finetune/change_detection/{experiment_name}/`
+
+---
+
+## Common Pitfalls
+
+1. **Band order mismatch**: Each model expects bands in a specific order. χViT uses R,G,B (B04,B03,B02) while most use B,G,R (B02,B03,B04).
+2. **Channel count mismatch**: When evaluating on different band combos, zero-padding or conv adaptation is needed. Use `adapt_rgb_conv_layer_to_multiband` or `adapt_rgb_conv_layer_to_multiband_preserve_rgb`.
+3. **SAR normalization**: SAR bands use specific mean/std stats (`VH: -19.3/5.46`, `VV: -12.62/5.12`).
+4. **Input size alignment**: DINOv2/v3 require image size divisible by 14 (`(size // 14) * 14`).
+5. **ChannelViT channels arg**: `--cvit_channels` indices differ between ChannelViT variants (so2sat duplicates SAR bands).
+6. **Segmentation/CD use DDP**: Must launch with `torchrun`, not plain `python`.
+7. **Classification uses PL**: Uses PyTorch Lightning Trainer, not manual DDP.
