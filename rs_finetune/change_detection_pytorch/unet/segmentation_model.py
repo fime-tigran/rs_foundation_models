@@ -3,6 +3,7 @@ from .seg_decoder import UnetDecoderSeg
 from ..encoders import get_encoder
 from ..base import SegmentationModel
 from ..base import SegmentationHead, ClassificationHead
+from classifier_utils import ChannelDropout
 import torch
 
 class UnetSeg(SegmentationModel):
@@ -68,13 +69,18 @@ class UnetSeg(SegmentationModel):
         freeze_encoder = False,
         enable_multiband_input: bool = False,
         multiband_channel_count: int = 12,
+        channel_dropout_rate: float = 0.0,
+        min_drop_channels: int = 1,
         **kwargs
     ):
         super().__init__()
 
         self.channels = channels
         self.freeze_encoder = freeze_encoder
-        self.encoder_name =  encoder_name
+        self.encoder_name = encoder_name
+        self.channel_dropout = None
+        if channel_dropout_rate > 0.0 and 'cvit-pretrained' not in encoder_name.lower():
+            self.channel_dropout = ChannelDropout(p=channel_dropout_rate, min_channels=min_drop_channels)
         self.enable_multiband_input = enable_multiband_input
         self.multiband_channel_count = multiband_channel_count
 
@@ -169,7 +175,8 @@ class UnetSeg(SegmentationModel):
     
     def base_forward(self, x, metadata=None):
         channels = self.channels
-        
+        if self.channel_dropout is not None:
+            x = self.channel_dropout(x)
         if self.enable_multiband_input and x.shape[1] != self.multiband_channel_count:
             if x.shape[1] < self.multiband_channel_count:
                 num_missing = self.multiband_channel_count - x.shape[1]

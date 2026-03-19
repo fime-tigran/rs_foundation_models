@@ -44,6 +44,8 @@ def main(args):
             enable_sample=args.enable_sample,
             enable_multiband_input=args.enable_multiband_input,
             multiband_channel_count=args.multiband_channel_count,
+            channel_dropout_rate=args.channel_dropout_rate,
+            min_drop_channels=args.min_drop_channels,
         )
     else:
         model = cdp.UPerNetSeg(
@@ -65,6 +67,8 @@ def main(args):
             enable_sample=args.enable_sample,
             enable_multiband_input=args.enable_multiband_input,
             multiband_channel_count=args.multiband_channel_count,
+            channel_dropout_rate=args.channel_dropout_rate,
+            min_drop_channels=args.min_drop_channels,
         )
     if args.load_from_checkpoint:
         checkpoint = torch.load(args.checkpoint_path, map_location=torch.device(DEVICE))
@@ -284,6 +288,8 @@ if __name__ == '__main__':
     parser.add_argument("--classes", type=int, default=2)
     parser.add_argument('--enable_multiband_input', action='store_true')
     parser.add_argument('--multiband_channel_count', type=int, default=3)
+    parser.add_argument('--channel_dropout_rate', type=float, default=0.0)
+    parser.add_argument('--min_drop_channels', type=int, default=1)
 
     args = parser.parse_args()
     seed_torch(seed=args.seed)

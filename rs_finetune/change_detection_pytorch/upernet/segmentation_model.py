@@ -4,6 +4,7 @@ from .seg_decoder import UPerNetDecoderSeg
 import torch
 from typing import Optional
 from .decoder_pangea import SegUPerNet
+from classifier_utils import ChannelDropout
 
 class UPerNetSeg(SegmentationModel):
     """UPerNet_ is a fully convolution neural network for image semantic segmentation.
@@ -68,11 +69,16 @@ class UPerNetSeg(SegmentationModel):
         channels = [0, 1, 2],
         out_size = 224,
         enable_sample: bool = False,
+        channel_dropout_rate: float = 0.0,
+        min_drop_channels: int = 1,
         **kwargs
     ):
         super().__init__()
 
         self.encoder_name = encoder_name
+        self.channel_dropout = None
+        if channel_dropout_rate > 0.0 and 'cvit-pretrained' not in encoder_name.lower():
+            self.channel_dropout = ChannelDropout(p=channel_dropout_rate, min_channels=min_drop_channels)
         self.channels = channels
         self.enable_multiband_input = enable_multiband_input
         self.multiband_channel_count = multiband_channel_count
@@ -195,6 +201,8 @@ class UPerNetSeg(SegmentationModel):
 
     def base_forward(self, x, metadata=None):
         channels = self.channels
+        if self.channel_dropout is not None:
+            x = self.channel_dropout(x)
         """Sequentially pass `x1` `x2` trough model`s encoder, decoder and heads"""
         if self.freeze_encoder:
             with torch.no_grad():

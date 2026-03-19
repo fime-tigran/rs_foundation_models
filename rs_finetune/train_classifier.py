@@ -23,11 +23,10 @@ from utils import get_band_indices, get_band_orders, get_band_indices_cvit_so2sa
 
 from torchmetrics import Accuracy, AveragePrecision, F1Score
 # from aim.pytorch_lightning import AimLogger
-from classifier_utils import load_encoder
+from classifier_utils import load_encoder, ChannelDropout
 
 from torchmetrics import Accuracy, AveragePrecision, F1Score
 from aim.pytorch_lightning import AimLogger
-from classifier_utils import load_encoder
 
 from pytorch_lightning.callbacks import ModelCheckpoint, Callback
 
@@ -57,15 +56,34 @@ class LearningRateLogger(Callback):
         trainer.logger.experiment.track(lr, name="learning_rate", step=trainer.global_step)
 
 
+class CurriculumChannelSamplingCallback(Callback):
+    def __init__(self, n_channels: int):
+        self.n_channels = n_channels
+
+    def on_train_epoch_start(self, trainer, pl_module):
+        if not hasattr(pl_module, 'encoder'):
+            return
+        encoder = pl_module.encoder
+        if not hasattr(encoder, 'patch_embed') or not hasattr(encoder.patch_embed, 'min_sample_channels'):
+            return
+        epoch_progress = trainer.current_epoch / max(1, trainer.max_epochs - 1)
+        min_ch = max(1, int(self.n_channels * epoch_progress * 0.5))
+        encoder.patch_embed.min_sample_channels = min_ch
+
+
 class Classifier(pl.LightningModule):
 
     def __init__(self, backbone_name, backbone_weights, in_features, num_classes,
                   lr, scheduler, checkpoint_path, only_head, warmup_steps, eta_min,
                   warmup_start_lr, weight_decay, mixup, prefix='backbone', optimizer='adamw', frozen_channel_embed=False,
-                  enable_sample=False, shared_proj=False, add_ch_embed=True, multilabel=False, bands=['B04', 'B03', 'B02'],
-                  enable_multiband_input=False, multiband_channel_count=12):
+                  enable_sample=False, min_sample_channels=1, shared_proj=False, add_ch_embed=True, multilabel=False, bands=['B04', 'B03', 'B02'],
+                  enable_multiband_input=False, multiband_channel_count=12, pooling_mode: str = "cls",
+                  freeze_unused_channel_embeds: bool = False, channel_embed_reg_lambda: float = 0.0,
+                  enable_channel_gate: bool = False,
+                  channel_dropout_rate: float = 0.0, min_drop_channels: int = 1):
         super().__init__()
         self.in_features = in_features
+        self.channel_dropout = ChannelDropout(p=channel_dropout_rate, min_channels=min_drop_channels) if channel_dropout_rate > 0 else None
         self.lr = lr
         self.scheduler = scheduler
         self.only_head = only_head
@@ -96,7 +114,10 @@ class Classifier(pl.LightningModule):
             self.encoder = load_encoder(backbone_name, backbone_weights, 
                                         enable_sample, shared_proj, add_ch_embed, 
                                         enable_multiband_input=self.enable_multiband_input, 
-                                        multiband_channel_count=self.multiband_channel_count)
+                                        multiband_channel_count=self.multiband_channel_count,
+                                        min_sample_channels=min_sample_channels,
+                                        pooling_mode=pooling_mode,
+                                        enable_channel_gate=enable_channel_gate)
             self.classifier = torch.nn.Linear(in_features, num_classes)
             if 'ms' in backbone_weights:
                 self.global_average_pooling = torch.nn.AdaptiveAvgPool2d(1)
@@ -121,11 +142,23 @@ class Classifier(pl.LightningModule):
             for name, param in self.encoder.named_parameters(): 
                 if "channel_embed" in name:
                     param.requires_grad = False
-                # if param.requires_grad:
-                #     print(name)
+        elif freeze_unused_channel_embeds and hasattr(self.encoder, 'patch_embed') and hasattr(self.encoder.patch_embed, 'channel_embed'):
+            training_channel_idxs = set(get_band_indices(bands))
+            embed_param = self.encoder.patch_embed.channel_embed
+            mask = torch.zeros(embed_param.shape[2], dtype=torch.float32, device=embed_param.device)
+            for idx in training_channel_idxs:
+                mask[idx] = 1.0
+            embed_param.register_hook(lambda g, m=mask: g * m.view(1, 1, -1, 1, 1).to(g.device))
+        self.freeze_unused_channel_embeds = freeze_unused_channel_embeds
+        self.channel_embed_reg_lambda = channel_embed_reg_lambda
+        self._pretrained_channel_embed = None
+        if channel_embed_reg_lambda > 0 and hasattr(self.encoder, 'patch_embed') and hasattr(self.encoder.patch_embed, 'channel_embed'):
+            self._pretrained_channel_embed = self.encoder.patch_embed.channel_embed.data.clone()
         self.mixup = v2.MixUp(num_classes=num_classes) if mixup else None
 
     def forward(self, x, metadata=None):
+        if self.channel_dropout is not None and "cvit-pretrained" not in self.backbone_name.lower():
+            x = self.channel_dropout(x)
         if self.enable_multiband_input and self.multiband_channel_count == 12 and x.shape[1] == 10:
             zeros = torch.zeros((x.shape[0], 2, x.shape[2], x.shape[3]), dtype=x.dtype, device=x.device)
             x = torch.cat([x, zeros], dim=1)
@@ -212,6 +245,9 @@ class Classifier(pl.LightningModule):
         else:
             logits = self(x)
         loss = self.criterion(logits, y)
+        if self.channel_embed_reg_lambda > 0 and self._pretrained_channel_embed is not None:
+            embed_reg = (self.encoder.patch_embed.channel_embed - self._pretrained_channel_embed.to(self.encoder.patch_embed.channel_embed.device)).pow(2).mean()
+            loss = loss + self.channel_embed_reg_lambda * embed_reg
         if mixup:
             y = torch.argmax(y, dim=1)
         if self.multilabel:
@@ -294,6 +330,22 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', type=int, default=16)
     parser.add_argument('--multiband_channel_count', type=int, default=12)
     parser.add_argument('--enable_sample', action='store_true')
+    parser.add_argument('--min_sample_channels', type=int, default=1,
+                        help='χViT HCS: minimum channels sampled per forward')
+    parser.add_argument('--pooling_mode', type=str, default='cls', choices=['cls', 'channel_mean', 'cls+channel_mean'],
+                        help='χViT: cls, channel_mean (channel-count-invariant), cls+channel_mean')
+    parser.add_argument('--freeze_unused_channel_embeds', action='store_true',
+                        help='χViT: freeze embeddings for bands not in --bands')
+    parser.add_argument('--channel_embed_reg_lambda', type=float, default=0.0,
+                        help='χViT: L2 reg toward pretrained channel embeddings')
+    parser.add_argument('--enable_channel_gate', action='store_true',
+                        help='χViT: learnable per-channel gates')
+    parser.add_argument('--curriculum_sampling', action='store_true',
+                        help='Anneal HCS/channel dropout aggressiveness over epochs')
+    parser.add_argument('--channel_dropout_rate', type=float, default=0.0,
+                        help='Randomly drop channels during training; χViT uses HCS instead')
+    parser.add_argument('--min_drop_channels', type=int, default=1,
+                        help='Minimum channels to keep when channel dropout active')
     parser.add_argument('--shared_proj', action='store_true')
     parser.add_argument('--enable_multiband_input', action='store_true')
     parser.add_argument('--add_ch_embed', action='store_true')
@@ -395,6 +447,13 @@ if __name__ == '__main__':
                          only_head=args.only_head, warmup_steps=args.warmup_steps,
                          eta_min=args.eta_min, warmup_start_lr=args.warmup_start_lr, 
                          weight_decay=args.weight_decay, enable_sample=args.enable_sample, 
+                         min_sample_channels=args.min_sample_channels,
+                         pooling_mode=args.pooling_mode,
+                         freeze_unused_channel_embeds=args.freeze_unused_channel_embeds,
+                         channel_embed_reg_lambda=args.channel_embed_reg_lambda,
+                         enable_channel_gate=args.enable_channel_gate,
+                         channel_dropout_rate=args.channel_dropout_rate,
+                         min_drop_channels=args.min_drop_channels,
                          frozen_channel_embed=args.frozen_channel_embed, 
                          shared_proj=args.shared_proj, add_ch_embed=args.add_ch_embed,
                          enable_multiband_input=args.enable_multiband_input, 
@@ -449,10 +508,13 @@ if __name__ == '__main__':
             verbose=True,
             save_last=True
         )
+        callbacks_list = [best_model_checkpoint_f1]
+        if args.curriculum_sampling and args.enable_sample:
+            callbacks_list.append(CurriculumChannelSamplingCallback(n_channels=len(args.bands)))
 
         trainer = pl.Trainer(devices=args.device, max_epochs=args.epoch, num_nodes=args.num_nodes,
                             accumulate_grad_batches=args.accumulate_grad_batches, log_every_n_steps=1,
-                            callbacks=[best_model_checkpoint_f1])
+                            callbacks=callbacks_list)
                             # callbacks=[best_model_checkpoint_acc, best_model_checkpoint_map, best_model_checkpoint_f1, LearningRateLogger()])
         trainer.fit(model, train_dataloaders=dataloader_train, val_dataloaders=dataloader_val)
         
@@ -466,7 +528,10 @@ if __name__ == '__main__':
             verbose=True,
             save_last=True
         )
+        callbacks_list = [best_model_checkpoint]
+        if args.curriculum_sampling and args.enable_sample:
+            callbacks_list.append(CurriculumChannelSamplingCallback(n_channels=len(args.bands)))
         trainer = pl.Trainer(devices=args.device, max_epochs=args.epoch, num_nodes=args.num_nodes,
                             accumulate_grad_batches=args.accumulate_grad_batches,
-                            log_every_n_steps=1, callbacks=[best_model_checkpoint])
+                            log_every_n_steps=1, callbacks=callbacks_list)
         trainer.fit(model, train_dataloaders=dataloader_train, val_dataloaders=dataloader_val)

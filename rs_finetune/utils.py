@@ -45,6 +45,34 @@ def get_band_orders(model_name, rgb=False):
     
     return BAND_ORDER_MAPPING.get(model_name, BAND_ORDER)
 
+
+SPECTRAL_PROXIMITY: dict[str, dict[str, float]] = {
+    "B08": {"B04": 0.6, "B03": 0.3, "B02": 0.1},
+    "B8A": {"B08": 0.5, "B04": 0.3, "B03": 0.2},
+    "B05": {"B04": 0.5, "B03": 0.3, "B02": 0.2},
+    "B06": {"B05": 0.5, "B04": 0.3, "B08": 0.2},
+    "B07": {"B06": 0.5, "B05": 0.3, "B08": 0.2},
+    "B11": {"B08": 0.4, "B12": 0.4, "B8A": 0.2},
+    "B12": {"B11": 0.5, "B8A": 0.3, "B08": 0.2},
+    "VV": {},
+    "VH": {},
+}
+
+
+def get_spectral_init_weights(new_band: str, training_bands: list[str]) -> dict[int, float]:
+    training_list = list(training_bands)
+    if new_band in SPECTRAL_PROXIMITY:
+        weights = SPECTRAL_PROXIMITY[new_band]
+        result: dict[int, float] = {}
+        for band, w in weights.items():
+            if band in training_list:
+                idx = training_list.index(band)
+                result[idx] = result.get(idx, 0) + w
+        if result:
+            total = sum(result.values())
+            return {k: v / total for k, v in result.items()}
+    return {i: 1.0 / len(training_bands) for i in range(len(training_bands))}
+
 def seed_torch(seed):
     random.seed(seed)
     os.environ['PYTHONHASHSEED'] = str(seed)

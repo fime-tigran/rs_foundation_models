@@ -68,10 +68,14 @@ def main(args):
 
     if args.preserve_rgb_weights:
         from classifier_utils import adapt_encoder_for_multiband_eval
-        
+        training_bands = json.loads(args.training_bands) if args.training_bands else None
+        new_bands = json.loads(args.new_bands) if args.new_bands else None
         adapt_encoder_for_multiband_eval(
-            encoder=model.encoder, 
-            multiband_channel_count=args.multiband_channel_count
+            encoder=model.encoder,
+            multiband_channel_count=args.multiband_channel_count,
+            spectral_init=args.spectral_init_new_channels,
+            training_bands=training_bands,
+            new_bands=new_bands,
         )
 
     loss = cdp.utils.losses.CrossEntropyLoss()
@@ -219,8 +223,12 @@ if __name__== '__main__':
     parser.add_argument('--enable_multiband_input', action='store_true')
     parser.add_argument('--multiband_channel_count', type=int, default=3)
     parser.add_argument('--preserve_rgb_weights', action='store_true')
-
-
+    parser.add_argument('--spectral_init_new_channels', action='store_true',
+                        help='Weighted-avg init for new channels; SAR uses equal weights over training bands')
+    parser.add_argument('--training_bands', type=str, default='',
+                        help='JSON array of train-time bands, e.g. ["B04","B03","B02"]')
+    parser.add_argument('--new_bands', type=str, default='',
+                        help='JSON array of bands added at eval, e.g. ["B08"] for RGB->RGBN')
 
     args = parser.parse_args()
     main(args)

@@ -3,6 +3,7 @@ from ..encoders import get_encoder
 from .decoder import UPerNetDecoder
 from .decoder_pangea import SiamUPerNet
 
+from classifier_utils import ChannelDropout
 from typing import Optional
 import torch
 
@@ -71,11 +72,16 @@ class UPerNet(SegmentationModel):
         enable_sample: bool = False,
         enable_multiband_input: bool = False,
         multiband_channel_count: int = 12,
+        channel_dropout_rate: float = 0.0,
+        min_drop_channels: int = 1,
         **kwargs
     ):
         super().__init__()
 
         self.siam_encoder = siam_encoder
+        self.channel_dropout = None
+        if channel_dropout_rate > 0.0 and 'cvit-pretrained' not in encoder_name.lower():
+            self.channel_dropout = ChannelDropout(p=channel_dropout_rate, min_channels=min_drop_channels)
         self.encoder_name = encoder_name
         self.channels = channels
         self.enable_multiband_input = enable_multiband_input

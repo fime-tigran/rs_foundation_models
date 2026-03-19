@@ -25,7 +25,8 @@ def init_dist(master_port):
     dist.init_process_group(backend='nccl', init_method='env://')
 
 def load_model(checkpoint_path='',encoder_depth=12, backbone='Swin-B', encoder_weights='geopile', upernet_width=256,
-                fusion='diff', load_decoder=False, in_channels = 3, channels=[0, 1, 2], upsampling=4, out_size=224, enable_multiband=False, multiband_channel_count=12):
+                fusion='diff', load_decoder=False, in_channels = 3, channels=[0, 1, 2], upsampling=4, out_size=224, enable_multiband=False, multiband_channel_count=12,
+                spectral_init=False, training_bands=None, new_bands=None):
     # Use multiband_channel_count as in_channels when multiband input is enabled
     actual_in_channels = multiband_channel_count if enable_multiband else in_channels
     
@@ -51,9 +52,21 @@ def load_model(checkpoint_path='',encoder_depth=12, backbone='Swin-B', encoder_w
     # Manually adapt encoder for multiband input if needed
     if enable_multiband:
         from classifier_utils import adapt_encoder_for_multiband_eval
-        adapt_encoder_for_multiband_eval(model.encoder, multiband_channel_count)
+        adapt_encoder_for_multiband_eval(
+            model.encoder,
+            multiband_channel_count=multiband_channel_count,
+            spectral_init=spectral_init,
+            training_bands=training_bands,
+            new_bands=new_bands,
+        )
         if not model.siam_encoder:
-            adapt_encoder_for_multiband_eval(model.encoder_non_siam, multiband_channel_count)
+            adapt_encoder_for_multiband_eval(
+                model.encoder_non_siam,
+                multiband_channel_count=multiband_channel_count,
+                spectral_init=spectral_init,
+                training_bands=training_bands,
+                new_bands=new_bands,
+            )
     
     model.to('cuda:{}'.format(dist.get_rank()))
     model = DDP(model)

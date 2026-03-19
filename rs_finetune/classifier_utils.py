@@ -8,13 +8,33 @@ from change_detection_pytorch.encoders import (vit_encoders, swin_transformer_en
 
 
 from change_detection_pytorch.encoders._utils import load_pretrained, adjust_state_dict_prefix
+from utils import get_spectral_init_weights
 
 
 timm_encoders = timm_vit_encoders.copy()
 timm_encoders.update(timm_resnet_encoders)
 
-def adapt_rgb_conv_layer_to_multiband(old_conv: nn.Conv2d, new_in_channels: int) -> nn.Conv2d:
 
+class ChannelDropout(nn.Module):
+    def __init__(self, p: float = 0.2, min_channels: int = 1):
+        super().__init__()
+        self.p = p
+        self.min_channels = min_channels
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if not self.training or self.p == 0:
+            return x
+        B, C, H, W = x.shape
+        keep = max(self.min_channels, int(C * (1 - self.p)))
+        mask = torch.zeros(B, C, 1, 1, device=x.device, dtype=x.dtype)
+        for b in range(B):
+            idx = torch.randperm(C, device=x.device)[:keep]
+            mask[b, idx] = C / keep
+        return x * mask
+
+
+def adapt_rgb_conv_layer_to_multiband(old_conv: nn.Conv2d, new_in_channels: int) -> nn.Conv2d:
+    old_in_channels = old_conv.in_channels
     new_conv = nn.Conv2d(
         in_channels=new_in_channels,
         out_channels=old_conv.out_channels,
@@ -25,9 +45,18 @@ def adapt_rgb_conv_layer_to_multiband(old_conv: nn.Conv2d, new_in_channels: int)
     )
     
     old_weights = old_conv.weight.data
-    averaged_weights = old_weights.mean(dim=1, keepdim=True)
-    new_weights = averaged_weights.repeat(1, new_in_channels, 1, 1)
-    new_weights = new_weights / new_in_channels
+    new_weights = torch.zeros(
+        old_conv.out_channels, new_in_channels, *old_conv.kernel_size,
+        device=old_weights.device, dtype=old_weights.dtype
+    )
+    if new_in_channels >= old_in_channels:
+        new_weights[:, :old_in_channels, :, :] = old_weights
+        if new_in_channels > old_in_channels:
+            init_w = old_weights.mean(dim=1)
+            for i in range(old_in_channels, new_in_channels):
+                new_weights[:, i, :, :] = init_w
+    else:
+        new_weights = old_weights[:, :new_in_channels, :, :].clone()
     new_conv.weight.data.copy_(new_weights)
 
     if old_conv.bias is not None:
@@ -35,14 +64,25 @@ def adapt_rgb_conv_layer_to_multiband(old_conv: nn.Conv2d, new_in_channels: int)
     
     return new_conv
 
-def adapt_rgb_conv_layer_to_multiband_preserve_rgb(old_conv: nn.Conv2d, new_in_channels: int = 4) -> nn.Conv2d:
+def adapt_rgb_conv_layer_to_multiband_preserve_rgb(
+    old_conv: nn.Conv2d,
+    new_in_channels: int = 4,
+    spectral_init: bool = False,
+    training_bands: list[str] | None = None,
+    new_bands: list[str] | None = None,
+) -> nn.Conv2d:
     """
-    Adapts a conv layer to handle multiband input while preserving existing band weights.
-    For new bands, uses the average of existing band weights.
-    
+    Adapt a 3-channel RGB conv layer to a new number of channels, preserving the original weights.
+    For each new channel, initialize its weights as a weighted average of the training bands.
+
     Args:
         old_conv: Original convolution layer
         new_in_channels: New number of input channels
+        spectral_init: whether to use spectral initialization
+        training_bands: the training bands
+        new_bands: the new bands
+    Returns:
+        the adapted conv layer
     """
     old_in_channels = old_conv.in_channels
     
@@ -71,13 +111,17 @@ def adapt_rgb_conv_layer_to_multiband_preserve_rgb(old_conv: nn.Conv2d, new_in_c
         
         # For new bands, use average of existing band weights
         if new_in_channels > old_in_channels:
-            existing_avg = old_weights.mean(dim=1, keepdim=True)
-            remaining_channels = new_in_channels - old_in_channels
-            new_weights[:, old_in_channels:, :, :] = existing_avg.repeat(1, remaining_channels, 1, 1)
+            train_bands = training_bands or ["B04", "B03", "B02"]
+            for i in range(old_in_channels, new_in_channels):
+                new_band = new_bands[i - old_in_channels] if new_bands and i - old_in_channels < len(new_bands) else None
+                if spectral_init and new_band:
+                    w = get_spectral_init_weights(new_band, train_bands)
+                    init_w = sum(old_weights[:, j, :, :] * wt for j, wt in w.items())
+                else:
+                    init_w = old_weights.mean(dim=1)
+                new_weights[:, i, :, :] = init_w
     else:
-        # If reducing channels, keep only the first new_in_channels
-        new_weights = old_weights[:, :new_in_channels, :, :]
-    
+        new_weights = old_weights[:, :new_in_channels, :, :].clone()
     new_conv.weight.data.copy_(new_weights)
 
     if old_conv.bias is not None:
@@ -107,14 +151,25 @@ def adapt_rgb_conv3d_layer_to_multiband(old_conv: nn.Conv3d, new_in_channels: in
     
     return new_conv
 
-def adapt_rgb_conv3d_layer_to_multiband_preserve_rgb(old_conv: nn.Conv3d, new_in_channels: int) -> nn.Conv3d:
+def adapt_rgb_conv3d_layer_to_multiband_preserve_rgb(
+    old_conv: nn.Conv3d,
+    new_in_channels: int,
+    spectral_init: bool = False,
+    training_bands: list[str] | None = None,
+    new_bands: list[str] | None = None,
+) -> nn.Conv3d:
     """
-    Adapts a 3D conv layer to handle multiband input while preserving existing band weights.
-    For new bands, uses the average of existing band weights.
-    
+    Adapt a 3-channel RGB conv3d layer to a new number of channels, preserving the original weights.
+    For each new channel, initialize its weights as a weighted average of the training bands.
+
     Args:
         old_conv: Original 3D convolution layer
         new_in_channels: New number of input channels
+        spectral_init: whether to use spectral initialization
+        training_bands: the training bands
+        new_bands: the new bands
+    Returns:
+        the adapted 3D conv layer
     """
     old_in_channels = old_conv.in_channels
     
@@ -125,14 +180,13 @@ def adapt_rgb_conv3d_layer_to_multiband_preserve_rgb(old_conv: nn.Conv3d, new_in
         stride=old_conv.stride,
         padding=old_conv.padding,
         bias=(old_conv.bias is not None)
-    )
-    
+    ).to(old_conv.weight.device)
     old_weights = old_conv.weight.data
     new_weights = torch.zeros(
-        old_conv.out_channels, 
-        new_in_channels, 
-        *old_conv.kernel_size, 
-        device=old_weights.device, 
+        old_conv.out_channels,
+        new_in_channels,
+        *old_conv.kernel_size,
+        device=old_weights.device,
         dtype=old_weights.dtype
     )
     
@@ -142,13 +196,17 @@ def adapt_rgb_conv3d_layer_to_multiband_preserve_rgb(old_conv: nn.Conv3d, new_in
         
         # For new bands, use average of existing band weights
         if new_in_channels > old_in_channels:
-            existing_avg = old_weights.mean(dim=1, keepdim=True)
-            remaining_channels = new_in_channels - old_in_channels
-            new_weights[:, old_in_channels:, :, :, :] = existing_avg.repeat(1, remaining_channels, 1, 1, 1)
+            train_bands = training_bands or ["B04", "B03", "B02"]
+            for i in range(old_in_channels, new_in_channels):
+                new_band = new_bands[i - old_in_channels] if new_bands and i - old_in_channels < len(new_bands) else None
+                if spectral_init and new_band:
+                    w = get_spectral_init_weights(new_band, train_bands)
+                    init_w = sum(old_weights[:, j, :, :, :] * wt for j, wt in w.items())
+                else:
+                    init_w = old_weights.mean(dim=1)
+                new_weights[:, i, :, :, :] = init_w
     else:
-        # If reducing channels, keep only the first new_in_channels
-        new_weights = old_weights[:, :new_in_channels, :, :, :]
-    
+        new_weights = old_weights[:, :new_in_channels, :, :, :].clone()
     new_conv.weight.data.copy_(new_weights)
 
     if old_conv.bias is not None:
@@ -156,22 +214,36 @@ def adapt_rgb_conv3d_layer_to_multiband_preserve_rgb(old_conv: nn.Conv3d, new_in
     
     return new_conv
 
-def adapt_encoder_for_multiband_eval(encoder, multiband_channel_count = 4):
+def adapt_encoder_for_multiband_eval(
+    encoder,
+    multiband_channel_count: int = 4,
+    spectral_init: bool = False,
+    training_bands: list[str] | None = None,
+    new_bands: list[str] | None = None,
+):
     """
-    Adapts an encoder to handle multiband input while preserving RGB weights.
-    This function should be called after loading checkpoint weights.
-    
+    Adapt an encoder for multiband evaluation.
+
     Args:
         encoder: The encoder to adapt
-        multiband_channel_count: Number of input channels (e.g., 4 for RGB+N)
+        multiband_channel_count: The number of channels in the multiband input
+        spectral_init: Whether to use spectral initialization
+        training_bands: The training bands
+        new_bands: The new bands
+    Returns:
+        True if the encoder was successfully adapted, False otherwise
     """
+    adapt_kw = dict(
+        new_in_channels=multiband_channel_count,
+        spectral_init=spectral_init,
+        training_bands=training_bands,
+        new_bands=new_bands,
+    )
     if hasattr(encoder, 'patch_embed') and hasattr(encoder.patch_embed, 'proj'):
         # Standard ViT, Swin, etc.
         old_conv = encoder.patch_embed.proj
-        encoder.patch_embed.proj = adapt_rgb_conv_layer_to_multiband_preserve_rgb(
-            old_conv=old_conv, 
-            new_in_channels=multiband_channel_count
-        )
+        adapt_fn = adapt_rgb_conv3d_layer_to_multiband_preserve_rgb if isinstance(old_conv, nn.Conv3d) else adapt_rgb_conv_layer_to_multiband_preserve_rgb
+        encoder.patch_embed.proj = adapt_fn(old_conv=old_conv, **adapt_kw)
         # Update input channel count
         if hasattr(encoder.patch_embed, 'in_chans'):
             encoder.patch_embed.in_chans = multiband_channel_count
@@ -181,10 +253,8 @@ def adapt_encoder_for_multiband_eval(encoder, multiband_channel_count = 4):
     elif hasattr(encoder, 'model') and hasattr(encoder.model, 'patch_embed') and hasattr(encoder.model.patch_embed, 'proj'):
         # timm ViT, some other wrapped models
         old_conv = encoder.model.patch_embed.proj
-        encoder.model.patch_embed.proj = adapt_rgb_conv_layer_to_multiband_preserve_rgb(
-            old_conv=old_conv, 
-            new_in_channels=multiband_channel_count
-        )
+        adapt_fn = adapt_rgb_conv3d_layer_to_multiband_preserve_rgb if isinstance(old_conv, nn.Conv3d) else adapt_rgb_conv_layer_to_multiband_preserve_rgb
+        encoder.model.patch_embed.proj = adapt_fn(old_conv=old_conv, **adapt_kw)
         # Update input channel count
         if hasattr(encoder.model.patch_embed, 'in_chans'):
             encoder.model.patch_embed.in_chans = multiband_channel_count
@@ -193,19 +263,15 @@ def adapt_encoder_for_multiband_eval(encoder, multiband_channel_count = 4):
             
     elif hasattr(encoder, 'model') and hasattr(encoder.model, 'model') and hasattr(encoder.model.model, 'patch_embed') and hasattr(encoder.model.model.patch_embed, 'proj'):
         old_conv = encoder.model.model.patch_embed.proj
-        encoder.model.model.patch_embed.proj = adapt_rgb_conv_layer_to_multiband_preserve_rgb(
-            old_conv=old_conv, 
-            new_in_channels=multiband_channel_count
-        )
+        adapt_fn = adapt_rgb_conv3d_layer_to_multiband_preserve_rgb if isinstance(old_conv, nn.Conv3d) else adapt_rgb_conv_layer_to_multiband_preserve_rgb
+        encoder.model.model.patch_embed.proj = adapt_fn(old_conv=old_conv, **adapt_kw)
         if hasattr(encoder.model.model.patch_embed, 'in_chans'):
             encoder.model.model.patch_embed.in_chans = multiband_channel_count
             
     elif hasattr(encoder, 'backbone') and hasattr(encoder.backbone, 'patch_embed') and hasattr(encoder.backbone.patch_embed, 'proj'):
         old_conv = encoder.backbone.patch_embed.proj
-        encoder.backbone.patch_embed.proj = adapt_rgb_conv_layer_to_multiband_preserve_rgb(
-            old_conv=old_conv, 
-            new_in_channels=multiband_channel_count
-        )
+        adapt_fn = adapt_rgb_conv3d_layer_to_multiband_preserve_rgb if isinstance(old_conv, nn.Conv3d) else adapt_rgb_conv_layer_to_multiband_preserve_rgb
+        encoder.backbone.patch_embed.proj = adapt_fn(old_conv=old_conv, **adapt_kw)
         # Update input channel count
         if hasattr(encoder.backbone.patch_embed, 'in_chans'):
             encoder.backbone.patch_embed.in_chans = multiband_channel_count
@@ -214,10 +280,8 @@ def adapt_encoder_for_multiband_eval(encoder, multiband_channel_count = 4):
             
     elif hasattr(encoder, 'backbone') and hasattr(encoder.backbone, 'backbone') and hasattr(encoder.backbone.backbone, 'patch_embed') and hasattr(encoder.backbone.backbone.patch_embed, 'proj'):
         old_conv = encoder.backbone.backbone.patch_embed.proj
-        encoder.backbone.backbone.patch_embed.proj = adapt_rgb_conv_layer_to_multiband_preserve_rgb(
-            old_conv=old_conv, 
-            new_in_channels=multiband_channel_count
-        )
+        adapt_fn = adapt_rgb_conv3d_layer_to_multiband_preserve_rgb if isinstance(old_conv, nn.Conv3d) else adapt_rgb_conv_layer_to_multiband_preserve_rgb
+        encoder.backbone.backbone.patch_embed.proj = adapt_fn(old_conv=old_conv, **adapt_kw)
         # Update input channel count
         if hasattr(encoder.backbone.backbone.patch_embed, 'in_chans'):
             encoder.backbone.backbone.patch_embed.in_chans = multiband_channel_count
@@ -225,10 +289,7 @@ def adapt_encoder_for_multiband_eval(encoder, multiband_channel_count = 4):
     elif hasattr(encoder, 'backbone') and hasattr(encoder.backbone, 'features') and hasattr(encoder.backbone.features, '[0]') and hasattr(encoder.backbone.features[0], '[0]'):
         # Swin transformer with features
         old_conv = encoder.backbone.features[0][0]
-        encoder.backbone.features[0][0] = adapt_rgb_conv_layer_to_multiband_preserve_rgb(
-            old_conv=old_conv, 
-            new_in_channels=multiband_channel_count
-        )
+        encoder.backbone.features[0][0] = adapt_rgb_conv_layer_to_multiband_preserve_rgb(old_conv=old_conv, **adapt_kw)
         # Update input channel count
         if hasattr(encoder.backbone, 'in_channels'):
             encoder.backbone.in_channels = multiband_channel_count
@@ -236,10 +297,7 @@ def adapt_encoder_for_multiband_eval(encoder, multiband_channel_count = 4):
     elif hasattr(encoder, 'model') and hasattr(encoder.model, 'conv1'):
         # ResNet-style models
         old_conv = encoder.model.conv1
-        encoder.model.conv1 = adapt_rgb_conv_layer_to_multiband_preserve_rgb(
-            old_conv=old_conv, 
-            new_in_channels=multiband_channel_count
-        )
+        encoder.model.conv1 = adapt_rgb_conv_layer_to_multiband_preserve_rgb(old_conv=old_conv, **adapt_kw)
         # Update input channel count
         if hasattr(encoder.model, 'in_channels'):
             encoder.model.in_channels = multiband_channel_count
@@ -247,10 +305,7 @@ def adapt_encoder_for_multiband_eval(encoder, multiband_channel_count = 4):
     elif hasattr(encoder, 'embeddings') and hasattr(encoder.embeddings, 'patch_embeddings'):
         # DINOv3 from transformers
         old_conv = encoder.embeddings.patch_embeddings
-        encoder.embeddings.patch_embeddings = adapt_rgb_conv_layer_to_multiband_preserve_rgb(
-            old_conv=old_conv, 
-            new_in_channels=multiband_channel_count
-        )
+        encoder.embeddings.patch_embeddings = adapt_rgb_conv_layer_to_multiband_preserve_rgb(old_conv=old_conv, **adapt_kw)
         # Update input channel count in config if available
         if hasattr(encoder.config, 'num_channels'):
             encoder.config.num_channels = multiband_channel_count
@@ -264,7 +319,9 @@ def adapt_encoder_for_multiband_eval(encoder, multiband_channel_count = 4):
 
 def load_encoder(encoder_name='ibot-B', encoder_weights='imagenet', 
                  enable_sample=False, shared_proj=False, add_ch_embed=False, 
-                 enable_multiband_input=False, multiband_channel_count=12):
+                 enable_multiband_input=False, multiband_channel_count=12,
+                 min_sample_channels: int = 1, pooling_mode: str = "cls",
+                 enable_channel_gate: bool = False):
     
     if 'timm' in encoder_name.lower():
         Encoder = timm_encoders[encoder_name]["encoder"]
@@ -385,6 +442,9 @@ def load_encoder(encoder_name='ibot-B', encoder_weights='imagenet',
         params.update(enable_sample=enable_sample)
         params.update(shared_proj=shared_proj)
         params.update(add_ch_embed=add_ch_embed)
+        params.update(min_sample_channels=min_sample_channels)
+        params.update(pooling_mode=pooling_mode)
+        params.update(enable_channel_gate=enable_channel_gate)
 
         encoder = Encoder(**params)
         

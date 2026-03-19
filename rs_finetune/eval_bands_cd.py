@@ -111,10 +111,13 @@ def eval_on_sar(args):
     if args.replace_rgb_with_others and 'cvit' in cfg['backbone'].lower():
         channels = [0, 1]
     
-    model = load_model(args.checkpoint_path, encoder_depth=cfg['encoder_depth'], backbone=cfg['backbone'], 
+    training_bands = json.loads(args.training_bands) if args.training_bands else None
+    new_bands = json.loads(args.new_bands) if args.new_bands else None
+    model = load_model(args.checkpoint_path, encoder_depth=cfg['encoder_depth'], backbone=cfg['backbone'],
                        encoder_weights=cfg['encoder_weights'], fusion=cfg['fusion'], upsampling=args.upsampling, out_size=args.size,
                        load_decoder=cfg['load_decoder'], channels=args.cvit_channels, in_channels=cfg['in_channels'], upernet_width=args.upernet_width,
-                       enable_multiband=args.enable_multiband_input, multiband_channel_count=args.multiband_channel_count)    
+                       enable_multiband=args.enable_multiband_input, multiband_channel_count=args.multiband_channel_count,
+                       spectral_init=args.spectral_init_new_channels, training_bands=training_bands, new_bands=new_bands)
     model.eval()
     model.to(args.device)
     fscore = cdp.utils.metrics.Fscore(activation='argmax2d')
@@ -303,11 +306,14 @@ def eval_on_s2_sar(args):
         cfg = json.load(config)
     
     # Load model with the same configuration as training
-    model = load_model(args.checkpoint_path, encoder_depth=cfg['encoder_depth'], backbone=cfg['backbone'], 
+    training_bands = json.loads(args.training_bands) if args.training_bands else None
+    new_bands = json.loads(args.new_bands) if args.new_bands else None
+    model = load_model(args.checkpoint_path, encoder_depth=cfg['encoder_depth'], backbone=cfg['backbone'],
                        encoder_weights=cfg['encoder_weights'], fusion=cfg['fusion'], upsampling=args.upsampling, out_size=args.size,
-                       load_decoder=cfg['load_decoder'], channels=args.cvit_channels, in_channels=cfg['in_channels'], 
-                       upernet_width=args.upernet_width, enable_multiband=args.enable_multiband_input, 
-                       multiband_channel_count=args.multiband_channel_count)    
+                       load_decoder=cfg['load_decoder'], channels=args.cvit_channels, in_channels=cfg['in_channels'],
+                       upernet_width=args.upernet_width, enable_multiband=args.enable_multiband_input,
+                       multiband_channel_count=args.multiband_channel_count,
+                       spectral_init=args.spectral_init_new_channels, training_bands=training_bands, new_bands=new_bands)
     model.eval()
     model.to(args.device)
     fscore = cdp.utils.metrics.Fscore(activation='argmax2d')
@@ -405,10 +411,13 @@ def main(args):
         with open(args.dataset_config) as config:
             data_cfg = json.load(config)
 
-        model = load_model(args.checkpoint_path, encoder_depth=cfg['encoder_depth'], backbone=cfg['backbone'], 
+        training_bands = json.loads(args.training_bands) if args.training_bands else None
+        new_bands = json.loads(args.new_bands) if args.new_bands else None
+        model = load_model(args.checkpoint_path, encoder_depth=cfg['encoder_depth'], backbone=cfg['backbone'],
                        encoder_weights=cfg['encoder_weights'], fusion=cfg['fusion'], out_size=args.size, upernet_width=args.upernet_width,
                        load_decoder=cfg['load_decoder'], in_channels=cfg['in_channels'], upsampling=args.upsampling, channels=args.cvit_channels,
-                       enable_multiband=args.enable_multiband_input, multiband_channel_count=args.multiband_channel_count)
+                       enable_multiband=args.enable_multiband_input, multiband_channel_count=args.multiband_channel_count,
+                       spectral_init=args.spectral_init_new_channels, training_bands=training_bands, new_bands=new_bands)
         model.eval()
         model.to(args.device)
         dataset_path = data_cfg['dataset_path']
@@ -528,7 +537,12 @@ if __name__== '__main__':
     parser.add_argument('--fill_zeros', action="store_true")
     parser.add_argument('--enable_multiband_input', action="store_true")
     parser.add_argument('--multiband_channel_count', type=int, default=12)
-
+    parser.add_argument('--spectral_init_new_channels', action='store_true',
+                        help='Weighted-avg init for new channels (higher weight to spectrally closest bands); SAR uses equal weights')
+    parser.add_argument('--training_bands', type=str, default='',
+                        help='JSON array of bands used at train time, e.g. ["B04","B03","B02"]')
+    parser.add_argument('--new_bands', type=str, default='',
+                        help='JSON array of bands added at eval, e.g. ["B08"] for RGB->RGBN')
 
     args = parser.parse_args()
 

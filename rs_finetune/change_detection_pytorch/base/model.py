@@ -12,6 +12,10 @@ class SegmentationModel(torch.nn.Module):
 
     def base_forward(self, x1, x2, metadata=None):
         channels = self.channels
+        if hasattr(self, 'channel_dropout') and self.channel_dropout is not None and 'cvit-pretrained' not in self.encoder_name.lower():
+            # Channel dropout for cross-band robustness; χViT uses HCS instead
+            x1 = self.channel_dropout(x1)
+            x2 = self.channel_dropout(x2)
         """Sequentially pass `x1` `x2` trough model`s encoder, decoder and heads"""
         if self.freeze_encoder:
             with torch.no_grad():

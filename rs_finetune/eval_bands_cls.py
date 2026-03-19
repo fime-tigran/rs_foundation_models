@@ -68,16 +68,21 @@ def eval_sar(args):
                               prefix=prefix, mixup=False, bands=bands, 
                               enable_multiband_input=args.enable_multiband_input,
                               multiband_channel_count=args.multiband_channel_count,
-                              shared_proj=args.shared_proj, add_ch_embed=args.add_ch_embed)
+                              shared_proj=args.shared_proj, add_ch_embed=args.add_ch_embed,
+                              pooling_mode=getattr(args, 'pooling_mode', 'cls'))
     model.load_state_dict(checkpoint['state_dict'])
 
 
     if args.preserve_rgb_weights:
         from classifier_utils import adapt_encoder_for_multiband_eval
-        
+        training_bands = json.loads(args.training_bands) if args.training_bands else None
+        new_bands = json.loads(args.new_bands) if args.new_bands else None
         adapt_encoder_for_multiband_eval(
-            encoder=model.encoder, 
-            multiband_channel_count=args.multiband_channel_count
+            encoder=model.encoder,
+            multiband_channel_count=args.multiband_channel_count,
+            spectral_init=getattr(args, 'spectral_init_new_channels', False),
+            training_bands=training_bands,
+            new_bands=new_bands,
         )
         
     model.eval()
@@ -235,7 +240,8 @@ def main(args):
                                 prefix=prefix, mixup=False, multilabel=multilabel,
                                 enable_multiband_input=args.enable_multiband_input,
                                 multiband_channel_count=args.multiband_channel_count,
-                                shared_proj=args.shared_proj, add_ch_embed=args.add_ch_embed) #, channels=[0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13])
+                                shared_proj=args.shared_proj, add_ch_embed=args.add_ch_embed,
+                                pooling_mode=args.pooling_mode)
         model.load_state_dict(checkpoint['state_dict'])
         
         if args.preserve_rgb_weights:
@@ -246,9 +252,14 @@ def main(args):
             print(f"Current encoder input channels: {getattr(model.encoder, 'in_chans', 'unknown')}")
             print(f"Target multiband channels: {args.multiband_channel_count}")
             
+            training_bands = json.loads(args.training_bands) if args.training_bands else None
+            new_bands = json.loads(args.new_bands) if args.new_bands else None
             success = adapt_encoder_for_multiband_eval(
-                encoder=model.encoder, 
-                multiband_channel_count=args.multiband_channel_count
+                encoder=model.encoder,
+                multiband_channel_count=args.multiband_channel_count,
+                spectral_init=getattr(args, 'spectral_init_new_channels', False),
+                training_bands=training_bands,
+                new_bands=new_bands,
             )
             cfg['in_channels'] = args.multiband_channel_count
             if not success:
@@ -497,6 +508,14 @@ if __name__ == '__main__':
     parser.add_argument('--multiband_channel_count', type=int, default=12)
     parser.add_argument('--enable_multiband_input', action='store_true')
     parser.add_argument('--preserve_rgb_weights', action='store_true')
+    parser.add_argument('--pooling_mode', type=str, default='cls', choices=['cls', 'channel_mean', 'cls+channel_mean'],
+                        help='χViT: cls (default), channel_mean (channel-count-invariant), cls+channel_mean')
+    parser.add_argument('--spectral_init_new_channels', action='store_true',
+                        help='Weighted-avg init for new channels; SAR uses equal weights over training bands')
+    parser.add_argument('--training_bands', type=str, default='',
+                        help='JSON array of train-time bands, e.g. ["B04","B03","B02"]')
+    parser.add_argument('--new_bands', type=str, default='',
+                        help='JSON array of bands added at eval, e.g. ["B08"] for RGB->RGBN')
     parser.add_argument('--save_encoder_features', action='store_true', help='Save DINO feature vectors for analysis')
     parser.add_argument('--so2sat_folder_name', type=str, default='so2sat_features', help='Folder name for saving SO2Sat features')
 

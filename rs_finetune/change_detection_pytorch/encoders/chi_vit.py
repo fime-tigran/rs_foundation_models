@@ -59,7 +59,10 @@ class PatchEmbedPerChannel(nn.Module):
         enable_sample: bool = False,
         add_ch_embed: bool = True,
         shared_proj: bool = True,
+        min_sample_channels: int = 1,
+        enable_channel_gate: bool = False,
     ):
+        # min_sample_channels: HCS lower bound; enable_channel_gate: per-channel contribution control
         super().__init__()
         num_patches = (img_size // patch_size) * (img_size // patch_size) * in_chans
         self.img_size = img_size
@@ -68,6 +71,7 @@ class PatchEmbedPerChannel(nn.Module):
         self.in_chans = in_chans
         self.embed_dim = embed_dim
         self.enable_sample = enable_sample
+        self.min_sample_channels = min_sample_channels
         self.shared_proj = shared_proj
         self.add_ch_embed = add_ch_embed
 
@@ -93,6 +97,7 @@ class PatchEmbedPerChannel(nn.Module):
             trunc_normal_(self.channel_embed, std=0.02)
         else:
             self.channel_embed = None
+        self.channel_gate = nn.Parameter(torch.full((in_chans,), 5.0)) if enable_channel_gate else None
         print("enable_sample:", enable_sample)
         print("shared_proj: ", shared_proj)
 
@@ -102,14 +107,13 @@ class PatchEmbedPerChannel(nn.Module):
         # print("channel_idxs: ", channel_idxs)
         # assert Cin == len(channel_idxs)
         if self.training and self.enable_sample:
-            Cin_new = random.randint(1, Cin)
-
-            # Randomly sample the selected channels
+            min_ch = max(1, min(self.min_sample_channels, Cin))
+            Cin_new = random.randint(min_ch, Cin)
             channels = random.sample(range(Cin), k=Cin_new)
             Cin = Cin_new
             x = x[:, channels, :, :]
-            # channel_idxs = channel_idxs[channels]
-            channel_idxs = channels
+            orig_idxs = channel_idxs.flatten().tolist() if isinstance(channel_idxs, torch.Tensor) else list(channel_idxs)
+            channel_idxs = [orig_idxs[c] for c in channels]  # map sampled positions to original band indices for channel_embed
 
         if isinstance(channel_idxs, torch.Tensor):
             channel_idxs = channel_idxs.flatten().tolist()
@@ -137,6 +141,9 @@ class PatchEmbedPerChannel(nn.Module):
         # channel specific offsets
         if self.add_ch_embed:
             x = x + self.channel_embed[:, :, channel_idxs, :, :]  # B embed_dim Cin H' W'
+        if self.channel_gate is not None:
+            gates = self.channel_gate[channel_idxs].sigmoid()
+            x = x * gates.view(1, 1, -1, 1, 1)
 
         # # preparing the output sequence
         # x = x.flatten(2) # B embed_dim CinH'W'
@@ -199,10 +206,15 @@ class ChiVisionTransformer(nn.Module):
         enable_sample=False,
         add_ch_embed=True,
         shared_proj=True,
+        min_sample_channels: int = 1,
+        pooling_mode: str = "cls",
+        enable_channel_gate: bool = False,
         **kwargs,
     ):
+        # min_sample_channels: HCS lower bound; pooling_mode: cls|channel_mean|cls+channel_mean; enable_channel_gate: per-channel gates
         super().__init__()
         self.return_feats = return_feats
+        self.pooling_mode = pooling_mode
         if return_feats:
             self.neck = MultiLevelNeck(in_channels=[embed_dim, embed_dim, embed_dim, embed_dim], 
                                     out_channels=embed_dim, 
@@ -224,6 +236,8 @@ class ChiVisionTransformer(nn.Module):
             enable_sample=enable_sample,
             add_ch_embed=add_ch_embed,
             shared_proj=shared_proj,
+            min_sample_channels=min_sample_channels,
+            enable_channel_gate=enable_channel_gate,
         )
         if not self.add_ch_embed:
             self.att_channel_embed = AttChannelEmbed(
@@ -368,7 +382,18 @@ class ChiVisionTransformer(nn.Module):
         if self.return_feats:
             return self.neck(tuple(feats))
 
-        return x[:, 0, :]
+        if self.pooling_mode == "cls":
+            return x[:, 0, :]
+        # Channel-count-invariant pooling: mean over spatial then channels; stable when adding bands at eval
+        n_ch = len(channel_idxs) if isinstance(channel_idxs, (list, tuple)) else channel_idxs.shape[-1]
+        patch_tokens = x[:, 1:]
+        B, N, D = patch_tokens.shape
+        spatial = N // n_ch
+        per_channel = patch_tokens.reshape(B, n_ch, spatial, D)
+        pool_feat = per_channel.mean(dim=2).mean(dim=1)
+        if self.pooling_mode == "channel_mean":
+            return pool_feat
+        return (x[:, 0, :] + pool_feat) / 2
 
     def get_last_selfattention(self, x, channel_idxs):
         x = self.prepare_tokens(x)
