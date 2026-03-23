@@ -1,0 +1,10 @@
+-r requirements.txt
+pytest>=7.0.0
+pytorch-lightning>=2.0.0
+ruff>=0.8.0
+pylint>=3.0.0
+mmengine>=0.10.0
+python-box>=7.0.0
+einops>=0.7.0
+vit-pytorch>=1.0.0
+# Or: conda env create -f ../conda/environment.yml && conda activate rsfm

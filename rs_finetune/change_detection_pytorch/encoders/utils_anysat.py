@@ -5,7 +5,6 @@ import copy
 import numpy as np
 import torch.nn as nn
 import collections.abc
-import rpe_index_cpp
 
 from functools import partial
 from itertools import repeat
@@ -2018,12 +2017,13 @@ class TransformerMulti(nn.Module):
     
 
 
-EXPECTED_VERSION = "1.2.0"
-assert rpe_index_cpp.version() == EXPECTED_VERSION, \
-        f"""Unmatched `rpe_index_cpp` version: {rpe_index_cpp.version()}, expected version: {EXPECTED_VERSION}
-Please re-build the package `rpe_ops`."""
-
 RPEIndexFunction = None
+try:
+    from .rpe_ops.rpe_index import RPEIndexFunction as _RPEIndexFunction
+
+    RPEIndexFunction = _RPEIndexFunction
+except (ImportError, AssertionError, ModuleNotFoundError, OSError):
+    pass
 
 # class RPEIndexFunction(torch.autograd.Function):
 #     '''Y[b, h, i, j] = input[b, h, i, index[i, j]]'''

@@ -15,6 +15,15 @@ timm_encoders = timm_vit_encoders.copy()
 timm_encoders.update(timm_resnet_encoders)
 
 
+def register_channel_embed_gradient_mask(
+    embed_param: nn.Parameter, training_channel_idxs: set[int]
+) -> None:
+    mask = torch.zeros(embed_param.shape[2], dtype=torch.float32, device=embed_param.device)
+    for idx in training_channel_idxs:
+        mask[idx] = 1.0
+    embed_param.register_hook(lambda g, m=mask: g * m.view(1, 1, -1, 1, 1).to(g.device))
+
+
 class ChannelDropout(nn.Module):
     def __init__(self, p: float = 0.2, min_channels: int = 1):
         super().__init__()

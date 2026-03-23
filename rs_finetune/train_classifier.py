@@ -23,12 +23,14 @@ from utils import get_band_indices, get_band_orders, get_band_indices_cvit_so2sa
 
 from torchmetrics import Accuracy, AveragePrecision, F1Score
 # from aim.pytorch_lightning import AimLogger
-from classifier_utils import load_encoder, ChannelDropout
+from classifier_utils import load_encoder, ChannelDropout, register_channel_embed_gradient_mask
 
 from torchmetrics import Accuracy, AveragePrecision, F1Score
 from aim.pytorch_lightning import AimLogger
 
-from pytorch_lightning.callbacks import ModelCheckpoint, Callback
+from pytorch_lightning.callbacks import Callback, ModelCheckpoint
+
+from callbacks import CurriculumChannelSamplingCallback
 
 
 torch.set_float32_matmul_precision('medium')
@@ -54,21 +56,6 @@ class LearningRateLogger(Callback):
         lr = float(trainer.optimizers[0].param_groups[0]['lr'])
         # # Log the learning rate using your chosen logging framework
         trainer.logger.experiment.track(lr, name="learning_rate", step=trainer.global_step)
-
-
-class CurriculumChannelSamplingCallback(Callback):
-    def __init__(self, n_channels: int):
-        self.n_channels = n_channels
-
-    def on_train_epoch_start(self, trainer, pl_module):
-        if not hasattr(pl_module, 'encoder'):
-            return
-        encoder = pl_module.encoder
-        if not hasattr(encoder, 'patch_embed') or not hasattr(encoder.patch_embed, 'min_sample_channels'):
-            return
-        epoch_progress = trainer.current_epoch / max(1, trainer.max_epochs - 1)
-        min_ch = max(1, int(self.n_channels * epoch_progress * 0.5))
-        encoder.patch_embed.min_sample_channels = min_ch
 
 
 class Classifier(pl.LightningModule):
@@ -143,12 +130,10 @@ class Classifier(pl.LightningModule):
                 if "channel_embed" in name:
                     param.requires_grad = False
         elif freeze_unused_channel_embeds and hasattr(self.encoder, 'patch_embed') and hasattr(self.encoder.patch_embed, 'channel_embed'):
-            training_channel_idxs = set(get_band_indices(bands))
-            embed_param = self.encoder.patch_embed.channel_embed
-            mask = torch.zeros(embed_param.shape[2], dtype=torch.float32, device=embed_param.device)
-            for idx in training_channel_idxs:
-                mask[idx] = 1.0
-            embed_param.register_hook(lambda g, m=mask: g * m.view(1, 1, -1, 1, 1).to(g.device))
+            register_channel_embed_gradient_mask(
+                self.encoder.patch_embed.channel_embed,
+                set(get_band_indices(bands)),
+            )
         self.freeze_unused_channel_embeds = freeze_unused_channel_embeds
         self.channel_embed_reg_lambda = channel_embed_reg_lambda
         self._pretrained_channel_embed = None

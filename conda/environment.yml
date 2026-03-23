@@ -1,0 +1,34 @@
+# conda env create -f conda/environment.yml
+# conda env update -f conda/environment.yml --prune
+# conda activate rsfm
+# Training: cd rs_finetune && python train_classifier.py ...
+# Tests: cd rs_finetune && ./run_tests.sh
+# GPU (optional): install PyTorch with CUDA per https://pytorch.org/ into this env after create.
+name: rsfm
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pytorch>=2.1
+  - torchvision
+  - numpy
+  - pip:
+      - pytest>=7.0.0
+      - pytorch-lightning>=2.0.0
+      - pretrainedmodels==0.7.4
+      - efficientnet-pytorch==0.6.3
+      - timm==0.4.12
+      - "albumentations>=1.0.0,<=1.0.3"
+      - torchmetrics
+      - aim
+      - transformers
+      - huggingface_hub
+      - pillow
+      - scipy
+      - mmengine>=0.10.0
+      - python-box>=7.0.0
+      - einops>=0.7.0
+      - vit-pytorch>=1.0.0
+      - ruff>=0.8.0
+      - pylint>=3.0.0
