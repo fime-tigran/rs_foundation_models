@@ -7,4 +7,4 @@ mmengine>=0.10.0
 python-box>=7.0.0
 einops>=0.7.0
 vit-pytorch>=1.0.0
-# Or: conda env create -f ../conda/environment.yml && conda activate rsfm
+# Or from repo root: ./bootstrap_env.sh && source .venv/bin/activate

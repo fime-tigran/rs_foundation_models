@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -e
-source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate "${CONDA_ENV:-rsfm}"
 cd "$(dirname "$0")"
-KMP_DUPLICATE_LIB_OK=TRUE python -m pytest tests -q "$@"
+REPO_ROOT="$(cd .. && pwd)"
+PY="${REPO_ROOT}/.venv/bin/python"
+if [[ ! -x "${PY}" ]]; then
+  echo "Run once from repo root: ./bootstrap_env.sh" >&2
+  exit 1
+fi
+KMP_DUPLICATE_LIB_OK=TRUE exec "${PY}" -m pytest tests -q "$@"

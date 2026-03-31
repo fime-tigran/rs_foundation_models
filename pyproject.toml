@@ -1,7 +1,33 @@
 [project]
 name = "rs-foundation-models"
 version = "0"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "aim",
+    "albumentations>=1.0.0,<=1.0.3",
+    "efficientnet-pytorch==0.6.3",
+    "einops>=0.7.0",
+    "huggingface_hub",
+    "mmengine>=0.10.0",
+    "numpy",
+    "pillow",
+    "pretrainedmodels==0.7.4",
+    "pylint>=3.0.0",
+    "pytest>=7.0.0",
+    "python-box>=7.0.0",
+    "pytorch-lightning>=2.0.0",
+    "ruff>=0.8.0",
+    "scipy",
+    "timm==0.4.12",
+    "torch>=2.1",
+    "torchmetrics",
+    "torchvision",
+    "transformers",
+    "vit-pytorch>=1.0.0",
+]
+
+[tool.uv]
+package = false
 
 [tool.ruff]
 target-version = "py311"
