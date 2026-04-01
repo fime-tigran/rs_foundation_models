@@ -105,7 +105,7 @@ python train_classifier.py \
   --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --bands B04 B03 B02 --pooling_mode cls --shared_proj \
   --device 1 --seed 42 \
   --experiment_name cvit_eurosat_rgb_E0_baseline
@@ -118,7 +118,7 @@ python train_classifier.py \
   --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --bands B04 B03 B02 --pooling_mode cls --shared_proj \
   --enable_sample --min_sample_channels 1 \
   --device 1 --seed 42 \
@@ -132,7 +132,7 @@ python train_classifier.py \
   --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --bands B04 B03 B02 --pooling_mode channel_mean --shared_proj \
   --device 1 --seed 42 \
   --experiment_name cvit_eurosat_rgb_E2_pool
@@ -145,7 +145,7 @@ python train_classifier.py \
   --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --bands B04 B03 B02 --pooling_mode cls --shared_proj \
   --freeze_unused_channel_embeds \
   --device 1 --seed 42 \
@@ -159,7 +159,7 @@ python train_classifier.py \
   --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --bands B04 B03 B02 --pooling_mode cls --shared_proj \
   --channel_dropout_rate 0.2 --min_drop_channels 1 \
   --device 1 --seed 42 \
@@ -173,7 +173,7 @@ python train_classifier.py \
   --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --bands B04 B03 B02 --pooling_mode cls --shared_proj \
   --enable_channel_gate \
   --device 1 --seed 42 \
@@ -187,7 +187,7 @@ python train_classifier.py \
   --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --bands B04 B03 B02 --pooling_mode channel_mean --shared_proj \
   --enable_sample --min_sample_channels 1 \
   --device 1 --seed 42 \
@@ -201,7 +201,7 @@ python train_classifier.py \
   --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --bands B04 B03 B02 --pooling_mode channel_mean --shared_proj \
   --enable_sample --min_sample_channels 1 \
   --freeze_unused_channel_embeds \
@@ -216,7 +216,7 @@ python train_classifier.py \
   --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --bands B04 B03 B02 --pooling_mode channel_mean --shared_proj \
   --enable_sample --min_sample_channels 1 \
   --freeze_unused_channel_embeds \
@@ -232,7 +232,7 @@ python train_classifier.py \
   --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --bands B04 B03 B02 --pooling_mode channel_mean --shared_proj \
   --enable_sample --min_sample_channels 1 --curriculum_sampling \
   --freeze_unused_channel_embeds \
@@ -248,7 +248,7 @@ python train_classifier.py \
   --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --bands B04 B03 B02 --pooling_mode channel_mean \
   --enable_sample --min_sample_channels 1 --curriculum_sampling \
   --freeze_unused_channel_embeds \
@@ -265,7 +265,7 @@ python train_classifier.py \
   --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --bands B04 B03 B02 --pooling_mode channel_mean \
   --enable_sample --min_sample_channels 1 --curriculum_sampling \
   --channel_embed_reg_lambda 0.1 \
@@ -281,7 +281,7 @@ python train_classifier.py \
   --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --bands B04 B03 B02 --pooling_mode cls+channel_mean --shared_proj \
   --enable_sample --min_sample_channels 1 \
   --freeze_unused_channel_embeds \
@@ -303,7 +303,7 @@ python train_classifier.py \
   --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --enable_multiband_input --multiband_channel_count 10 \
   --bands B04 B03 B02 B05 B06 B07 B08 B8A B11 B12 \
   --pooling_mode cls --shared_proj \
@@ -318,7 +318,7 @@ python train_classifier.py \
   --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --enable_multiband_input --multiband_channel_count 10 \
   --bands B04 B03 B02 B05 B06 B07 B08 B8A B11 B12 \
   --enable_sample --min_sample_channels 3 --curriculum_sampling \
@@ -402,7 +402,7 @@ for DATASET in m_eurosat so2sat m_brick m_ben; do
     --backbone cvit-pretrained --encoder_weights chi_vit \
     --dataset_name $DATASET --image_size $IMG \
     --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-    --warmup_steps 10 --scheduler cosine \
+    --warmup_steps 20 --scheduler cosine \
     --bands B04 B03 B02 --pooling_mode channel_mean \
     --enable_sample --min_sample_channels 1 --curriculum_sampling \
     --freeze_unused_channel_embeds \
@@ -666,7 +666,7 @@ python train_classifier.py \
   --backbone ibot-B --encoder_weights million_aid \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --bands B02 B03 B04 \
   --device 1 --seed 42 \
   --experiment_name ibot_eurosat_rgb_baseline
@@ -676,7 +676,7 @@ python train_classifier.py \
   --backbone ibot-B --encoder_weights million_aid \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --bands B02 B03 B04 \
   --channel_dropout_rate 0.2 --min_drop_channels 1 \
   --device 1 --seed 42 \
@@ -691,7 +691,7 @@ python train_classifier.py \
   --backbone ibot-B --encoder_weights million_aid \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --enable_multiband_input --multiband_channel_count 10 \
   --bands B02 B03 B04 B05 B06 B07 B08 B8A B11 B12 \
   --device 1 --seed 42 \
@@ -702,7 +702,7 @@ python train_classifier.py \
   --backbone ibot-B --encoder_weights million_aid \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --enable_multiband_input --multiband_channel_count 10 \
   --bands B02 B03 B04 B05 B06 B07 B08 B8A B11 B12 \
   --channel_dropout_rate 0.2 --min_drop_channels 3 \
@@ -789,7 +789,7 @@ python train_classifier.py \
   --backbone dinov2 --encoder_weights "" \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --bands B02 B03 B04 \
   --device 1 --seed 42 \
   --experiment_name dinov2_eurosat_rgb_baseline
@@ -799,7 +799,7 @@ python train_classifier.py \
   --backbone dinov2 --encoder_weights "" \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --bands B02 B03 B04 \
   --channel_dropout_rate 0.2 --min_drop_channels 1 \
   --device 1 --seed 42 \
@@ -813,7 +813,7 @@ python train_classifier.py \
   --backbone dinov2 --encoder_weights "" \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --enable_multiband_input --multiband_channel_count 10 \
   --bands B02 B03 B04 B05 B06 B07 B08 B8A B11 B12 \
   --device 1 --seed 42 \
@@ -883,7 +883,7 @@ python train_classifier.py \
   --backbone dinov3_vitb16 --encoder_weights "" \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --bands B02 B03 B04 \
   --device 1 --seed 42 \
   --experiment_name dinov3_eurosat_rgb_baseline
@@ -893,7 +893,7 @@ python train_classifier.py \
   --backbone dinov3_vitb16 --encoder_weights "" \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --bands B02 B03 B04 \
   --channel_dropout_rate 0.2 --min_drop_channels 1 \
   --device 1 --seed 42 \
@@ -907,7 +907,7 @@ python train_classifier.py \
   --backbone dinov3_vitb16 --encoder_weights "" \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --enable_multiband_input --multiband_channel_count 10 \
   --bands B02 B03 B04 B05 B06 B07 B08 B8A B11 B12 \
   --device 1 --seed 42 \
@@ -960,7 +960,7 @@ python train_classifier.py \
   --backbone timm_vit-b --encoder_weights "" \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --bands B02 B03 B04 \
   --device 1 --seed 42 \
   --experiment_name vitb_eurosat_rgb_baseline
@@ -970,7 +970,7 @@ python train_classifier.py \
   --backbone timm_vit-b --encoder_weights "" \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --bands B02 B03 B04 \
   --channel_dropout_rate 0.2 --min_drop_channels 1 \
   --device 1 --seed 42 \
@@ -984,7 +984,7 @@ python train_classifier.py \
   --backbone timm_vit-b --encoder_weights "" \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
-  --warmup_steps 10 --scheduler cosine \
+  --warmup_steps 20 --scheduler cosine \
   --enable_multiband_input --multiband_channel_count 10 \
   --bands B02 B03 B04 B05 B06 B07 B08 B8A B11 B12 \
   --device 1 --seed 42 \

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")"
-uv venv -p 3.11
-uv pip install --python .venv/bin/python .
+if [ "${1:-}" = "--fresh" ]; then
+  rm -rf .venv
+fi
+uv sync --python 3.11

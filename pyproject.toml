@@ -7,27 +7,44 @@ dependencies = [
     "albumentations>=1.0.0,<=1.0.3",
     "efficientnet-pytorch==0.6.3",
     "einops>=0.7.0",
-    "huggingface_hub",
+    "geobench>=1.0.0",
+    "h5py",
+    "huggingface_hub>=1.8.0",
     "mmengine>=0.10.0",
     "numpy",
+    "opencv-python-headless",
+    "opencv-torchvision-transforms-yuzhiyang",
     "pillow",
     "pretrainedmodels==0.7.4",
     "pylint>=3.0.0",
     "pytest>=7.0.0",
     "python-box>=7.0.0",
     "pytorch-lightning>=2.0.0",
+    "rasterio",
     "ruff>=0.8.0",
     "scipy",
     "timm==0.4.12",
     "torch>=2.1",
     "torchmetrics",
     "torchvision",
-    "transformers",
+    "transformers>=5.4.0",
     "vit-pytorch>=1.0.0",
 ]
 
 [tool.uv]
 package = false
+override-dependencies = [
+    "huggingface-hub>=1.8.0",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu128", marker = "sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cu128", marker = "sys_platform == 'linux'" }]
 
 [tool.ruff]
 target-version = "py311"
