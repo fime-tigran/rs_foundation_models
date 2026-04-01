@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 import torch
 
 from classifier_utils import ChannelDropout
@@ -62,7 +64,7 @@ class UnetSeg(SegmentationModel):
         decoder_attention_type: str | None = None,
         in_channels: int = 3,
         classes: int = 1,
-        activation: str | callable | None = None,
+        activation: str | Callable[..., object] | None = None,
         aux_params: dict | None = None,
         scales=[4, 2, 1, 0.5],
         channels=[0, 1, 2],

@@ -29,6 +29,9 @@ from utils import create_collate_fn, get_band_indices, get_band_indices_cvit_so2
 
 torch.set_float32_matmul_precision("medium")
 
+WRITE_ROOT = "/nfs/h100/raid/rs/tigran_masters"
+CHECKPOINT_ROOT = f"{WRITE_ROOT}/finetune_ckpts"
+
 
 class WarmupCosineAnnealingLR(torch.optim.lr_scheduler.CosineAnnealingLR):
     def __init__(self, optimizer, warmup_epochs, total_epochs, warmup_start_lr=0, eta_min=0, last_epoch=-1):
@@ -617,8 +620,7 @@ if __name__ == "__main__":
     # aim_logger = AimLogger(repo='/auto/home/anna.khosrovyan/cvit_rs_foundation_models/rs_finetune/classification',
     #                        experiment=args.experiment_name)
 
-    # checkpoints_dir = f'/nfs/ap/mnt/frtn/rs-multiband/ckpt_rs_finetune/classification/{args.experiment_name}'
-    checkpoints_dir = f"/nfs/h100/raid/rs/ckpt_rs_finetune/classification/{args.experiment_name}"
+    checkpoints_dir = f"{CHECKPOINT_ROOT}/classification/{args.experiment_name}"
     # if not os.path.exists(checkpoints_dir):
     #     os.makedirs(checkpoints_dir)
     if os.path.exists(checkpoints_dir):

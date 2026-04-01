@@ -14,15 +14,18 @@ from utils import create_collate_fn, seed_torch
 torch.backends.cudnn.benchmark = False
 torch.set_float32_matmul_precision("medium")
 
+WRITE_ROOT = "/nfs/h100/raid/rs/tigran_masters"
+CHECKPOINT_ROOT = f"{WRITE_ROOT}/finetune_ckpts"
+SEGMENTATION_AIM_ROOT = f"{WRITE_ROOT}/aim_logs/segmentation"
+
 
 def main(args):
-    # checkpoints_dir = f'/nfs/ap/mnt/frtn/rs-multiband/ckpt_rs_finetune/segmentation/{args.experiment_name}'
-    checkpoints_dir = f"/nfs/h100/raid/rs/ckpt_rs_finetune/segmentation/{args.experiment_name}"
+    checkpoints_dir = f"{CHECKPOINT_ROOT}/segmentation/{args.experiment_name}"
     if not os.path.exists(checkpoints_dir):
         os.makedirs(checkpoints_dir)
 
     aim_logger = AimLogger(
-        repo="/auto/home/anna.khosrovyan/rs_foundation_models/rs_finetune/segmentation", experiment=args.experiment_name
+        repo=SEGMENTATION_AIM_ROOT, experiment=args.experiment_name
     )
 
     DEVICE = args.device if torch.cuda.is_available() else "cpu"

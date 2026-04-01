@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import Optional, Union, List
 from .decoder import UnetDecoder
 from ..encoders import get_encoder
@@ -60,7 +61,7 @@ class Unet(SegmentationModel):
         decoder_attention_type: Optional[str] = None,
         in_channels: int = 3,
         classes: int = 1,
-        activation: Optional[Union[str, callable]] = None,
+        activation: Optional[Union[str, Callable[..., object]]] = None,
         aux_params: Optional[dict] = None,
         siam_encoder: bool = True,
         fusion_form: str = "concat",

@@ -39,9 +39,9 @@ Segmentation/CD scripts use shorthand (`B2 B3 B4`, lowercase `vh vv`). Classific
 
 | Task | Directory |
 |---|---|
-| Classification | `/nfs/ap/mnt/frtn/ckpt_rs_finetune/classification/<exp>/` |
-| Segmentation | `/nfs/ap/mnt/frtn/rs-multiband/ckpt_rs_finetune/segmentation/<exp>/` |
-| Change detection | `/nfs/ap/mnt/frtn/rs-multiband/ckpt_rs_finetune/change_detection/<exp>/` |
+| Classification | `/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/classification/<exp>/` |
+| Segmentation | `/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/segmentation/<exp>/` |
+| Change detection | `/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/change_detection/<exp>/` |
 
 Classification saves `best-model.ckpt` (single-label) or `best-model-f1.ckpt` (m_ben).  
 Segmentation/CD saves `best_model.pth`.
@@ -102,11 +102,11 @@ cd rs_finetune
 
 ```bash
 python train_classifier.py \
-  --backbone cvit-pretrained --encoder_weights 400m \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
   --warmup_steps 10 --scheduler cosine \
-  --bands B04 B03 B02 --pooling_mode cls \
+  --bands B04 B03 B02 --pooling_mode cls --shared_proj \
   --device 1 --seed 42 \
   --experiment_name cvit_eurosat_rgb_E0_baseline
 ```
@@ -115,11 +115,11 @@ python train_classifier.py \
 
 ```bash
 python train_classifier.py \
-  --backbone cvit-pretrained --encoder_weights 400m \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
   --warmup_steps 10 --scheduler cosine \
-  --bands B04 B03 B02 --pooling_mode cls \
+  --bands B04 B03 B02 --pooling_mode cls --shared_proj \
   --enable_sample --min_sample_channels 1 \
   --device 1 --seed 42 \
   --experiment_name cvit_eurosat_rgb_E1_hcs
@@ -129,11 +129,11 @@ python train_classifier.py \
 
 ```bash
 python train_classifier.py \
-  --backbone cvit-pretrained --encoder_weights 400m \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
   --warmup_steps 10 --scheduler cosine \
-  --bands B04 B03 B02 --pooling_mode channel_mean \
+  --bands B04 B03 B02 --pooling_mode channel_mean --shared_proj \
   --device 1 --seed 42 \
   --experiment_name cvit_eurosat_rgb_E2_pool
 ```
@@ -142,11 +142,11 @@ python train_classifier.py \
 
 ```bash
 python train_classifier.py \
-  --backbone cvit-pretrained --encoder_weights 400m \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
   --warmup_steps 10 --scheduler cosine \
-  --bands B04 B03 B02 --pooling_mode cls \
+  --bands B04 B03 B02 --pooling_mode cls --shared_proj \
   --freeze_unused_channel_embeds \
   --device 1 --seed 42 \
   --experiment_name cvit_eurosat_rgb_E3_embedfreeze
@@ -156,11 +156,11 @@ python train_classifier.py \
 
 ```bash
 python train_classifier.py \
-  --backbone cvit-pretrained --encoder_weights 400m \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
   --warmup_steps 10 --scheduler cosine \
-  --bands B04 B03 B02 --pooling_mode cls \
+  --bands B04 B03 B02 --pooling_mode cls --shared_proj \
   --channel_dropout_rate 0.2 --min_drop_channels 1 \
   --device 1 --seed 42 \
   --experiment_name cvit_eurosat_rgb_E4_dropout
@@ -170,11 +170,11 @@ python train_classifier.py \
 
 ```bash
 python train_classifier.py \
-  --backbone cvit-pretrained --encoder_weights 400m \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
   --warmup_steps 10 --scheduler cosine \
-  --bands B04 B03 B02 --pooling_mode cls \
+  --bands B04 B03 B02 --pooling_mode cls --shared_proj \
   --enable_channel_gate \
   --device 1 --seed 42 \
   --experiment_name cvit_eurosat_rgb_E5_gate
@@ -184,11 +184,11 @@ python train_classifier.py \
 
 ```bash
 python train_classifier.py \
-  --backbone cvit-pretrained --encoder_weights 400m \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
   --warmup_steps 10 --scheduler cosine \
-  --bands B04 B03 B02 --pooling_mode channel_mean \
+  --bands B04 B03 B02 --pooling_mode channel_mean --shared_proj \
   --enable_sample --min_sample_channels 1 \
   --device 1 --seed 42 \
   --experiment_name cvit_eurosat_rgb_E6_hcs_pool
@@ -198,11 +198,11 @@ python train_classifier.py \
 
 ```bash
 python train_classifier.py \
-  --backbone cvit-pretrained --encoder_weights 400m \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
   --warmup_steps 10 --scheduler cosine \
-  --bands B04 B03 B02 --pooling_mode channel_mean \
+  --bands B04 B03 B02 --pooling_mode channel_mean --shared_proj \
   --enable_sample --min_sample_channels 1 \
   --freeze_unused_channel_embeds \
   --device 1 --seed 42 \
@@ -213,11 +213,11 @@ python train_classifier.py \
 
 ```bash
 python train_classifier.py \
-  --backbone cvit-pretrained --encoder_weights 400m \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
   --warmup_steps 10 --scheduler cosine \
-  --bands B04 B03 B02 --pooling_mode channel_mean \
+  --bands B04 B03 B02 --pooling_mode channel_mean --shared_proj \
   --enable_sample --min_sample_channels 1 \
   --freeze_unused_channel_embeds \
   --channel_dropout_rate 0.2 --min_drop_channels 1 \
@@ -229,11 +229,11 @@ python train_classifier.py \
 
 ```bash
 python train_classifier.py \
-  --backbone cvit-pretrained --encoder_weights 400m \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
   --warmup_steps 10 --scheduler cosine \
-  --bands B04 B03 B02 --pooling_mode channel_mean \
+  --bands B04 B03 B02 --pooling_mode channel_mean --shared_proj \
   --enable_sample --min_sample_channels 1 --curriculum_sampling \
   --freeze_unused_channel_embeds \
   --channel_dropout_rate 0.2 --min_drop_channels 1 \
@@ -245,7 +245,7 @@ python train_classifier.py \
 
 ```bash
 python train_classifier.py \
-  --backbone cvit-pretrained --encoder_weights 400m \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
   --warmup_steps 10 --scheduler cosine \
@@ -262,7 +262,7 @@ python train_classifier.py \
 
 ```bash
 python train_classifier.py \
-  --backbone cvit-pretrained --encoder_weights 400m \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
   --warmup_steps 10 --scheduler cosine \
@@ -278,11 +278,11 @@ python train_classifier.py \
 
 ```bash
 python train_classifier.py \
-  --backbone cvit-pretrained --encoder_weights 400m \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
   --warmup_steps 10 --scheduler cosine \
-  --bands B04 B03 B02 --pooling_mode cls+channel_mean \
+  --bands B04 B03 B02 --pooling_mode cls+channel_mean --shared_proj \
   --enable_sample --min_sample_channels 1 \
   --freeze_unused_channel_embeds \
   --channel_dropout_rate 0.2 --min_drop_channels 1 \
@@ -300,13 +300,13 @@ Baseline and best configuration. Adjust `--min_sample_channels` and `--min_drop_
 
 ```bash
 python train_classifier.py \
-  --backbone cvit-pretrained --encoder_weights 400m \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
   --warmup_steps 10 --scheduler cosine \
   --enable_multiband_input --multiband_channel_count 10 \
   --bands B04 B03 B02 B05 B06 B07 B08 B8A B11 B12 \
-  --pooling_mode cls \
+  --pooling_mode cls --shared_proj \
   --device 1 --seed 42 \
   --experiment_name cvit_eurosat_s2_E0_baseline
 ```
@@ -315,7 +315,7 @@ python train_classifier.py \
 
 ```bash
 python train_classifier.py \
-  --backbone cvit-pretrained --encoder_weights 400m \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
   --dataset_name m_eurosat --image_size 64 \
   --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
   --warmup_steps 10 --scheduler cosine \
@@ -325,6 +325,7 @@ python train_classifier.py \
   --pooling_mode channel_mean \
   --freeze_unused_channel_embeds \
   --channel_dropout_rate 0.2 --min_drop_channels 3 \
+  --shared_proj \
   --device 1 --seed 42 \
   --experiment_name cvit_eurosat_s2_E9_hcs_pool_embedfreeze_dropout_curriculum
 ```
@@ -340,7 +341,7 @@ python train_classifier.py \
 
 ```bash
 EXP=cvit_eurosat_rgb_E9_hcs_pool_embedfreeze_dropout_curriculum
-CKPT=/nfs/ap/mnt/frtn/ckpt_rs_finetune/classification/${EXP}/best-model.ckpt
+CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/classification/${EXP}/best-model.ckpt
 
 # mean-init for new B08 weight
 python eval_bands_cls.py \
@@ -351,7 +352,7 @@ python eval_bands_cls.py \
   --preserve_rgb_weights \
   --training_bands '["B04","B03","B02"]' --new_bands '["B08"]' \
   --bands '[["B04","B03","B02","B08"]]' \
-  --pooling_mode channel_mean \
+  --pooling_mode channel_mean --shared_proj \
   --filename eval_${EXP}_rgbn_meaninit
 
 # spectral-init for new B08 weight
@@ -363,7 +364,7 @@ python eval_bands_cls.py \
   --preserve_rgb_weights --spectral_init_new_channels \
   --training_bands '["B04","B03","B02"]' --new_bands '["B08"]' \
   --bands '[["B04","B03","B02","B08"]]' \
-  --pooling_mode channel_mean \
+  --pooling_mode channel_mean --shared_proj \
   --filename eval_${EXP}_rgbn_spectralinit
 ```
 
@@ -373,7 +374,7 @@ Swap `EXP` and `--pooling_mode` per experiment. For E0–E5 use `cls`; for E12 u
 
 ```bash
 EXP=cvit_eurosat_s2_E9_hcs_pool_embedfreeze_dropout_curriculum
-CKPT=/nfs/ap/mnt/frtn/ckpt_rs_finetune/classification/${EXP}/best-model.ckpt
+CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/classification/${EXP}/best-model.ckpt
 
 python eval_bands_cls.py \
   --model_config configs/cvit-pretrained.json \
@@ -384,7 +385,7 @@ python eval_bands_cls.py \
   --training_bands '["B04","B03","B02","B05","B06","B07","B08","B8A","B11","B12"]' \
   --new_bands '["VV","VH"]' \
   --bands '[["B04","B03","B02","B05","B06","B07","B08","B8A","B11","B12","VV","VH"]]' \
-  --pooling_mode channel_mean \
+  --pooling_mode channel_mean --shared_proj \
   --filename eval_${EXP}_s2s1_spectralinit
 ```
 
@@ -398,7 +399,7 @@ Once the winning experiment ID (e.g. E9) is confirmed on `m_eurosat`:
 for DATASET in m_eurosat so2sat m_brick m_ben; do
   IMG=$([ "$DATASET" = "m_ben" ] && echo 120 || ([ "$DATASET" = "so2sat" ] && echo 32 || echo 64))
   python train_classifier.py \
-    --backbone cvit-pretrained --encoder_weights 400m \
+    --backbone cvit-pretrained --encoder_weights chi_vit \
     --dataset_name $DATASET --image_size $IMG \
     --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
     --warmup_steps 10 --scheduler cosine \
@@ -406,6 +407,7 @@ for DATASET in m_eurosat so2sat m_brick m_ben; do
     --enable_sample --min_sample_channels 1 --curriculum_sampling \
     --freeze_unused_channel_embeds \
     --channel_dropout_rate 0.2 --min_drop_channels 1 \
+    --shared_proj \
     --device 1 --seed 42 \
     --experiment_name cvit_${DATASET}_rgb_best
 done
@@ -421,7 +423,7 @@ Script: `torchrun`. Band format: shorthand no leading zero (`B4 B3 B2`, `vv vh`)
 
 ```bash
 torchrun --nproc_per_node=2 train_segmenter.py \
-  --backbone cvit-pretrained --encoder_weights 400m \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
   --encoder_depth 12 --in_channels 3 \
   --dataset_name harvey \
   --dataset_path /nfs/h100/raid/rs/harvey/harvey \
@@ -441,7 +443,7 @@ torchrun --nproc_per_node=2 train_segmenter.py \
 
 ```bash
 torchrun --nproc_per_node=2 train_segmenter.py \
-  --backbone cvit-pretrained --encoder_weights 400m \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
   --encoder_depth 12 --in_channels 10 \
   --dataset_name harvey \
   --dataset_path /nfs/h100/raid/rs/harvey/harvey \
@@ -464,7 +466,7 @@ torchrun --nproc_per_node=2 train_segmenter.py \
 `eval_bands_seg.py` `channel_vit_order`: `['B4','B3','B2','B5','B6','B7','B8','B8A','B11','B12','vv','vh']`.
 
 ```bash
-CKPT=/nfs/ap/mnt/frtn/rs-multiband/ckpt_rs_finetune/segmentation/cvit_harvey_seg_rgb_E9/best_model.pth
+CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/segmentation/cvit_harvey_seg_rgb_E9/best_model.pth
 
 python eval_bands_seg.py \
   --model_config configs/cvit-pretrained.json \
@@ -481,7 +483,7 @@ python eval_bands_seg.py \
 ### Eval — S2 → S2+S1
 
 ```bash
-CKPT=/nfs/ap/mnt/frtn/rs-multiband/ckpt_rs_finetune/segmentation/cvit_harvey_seg_s2_E9/best_model.pth
+CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/segmentation/cvit_harvey_seg_s2_E9/best_model.pth
 
 python eval_bands_seg.py \
   --model_config configs/cvit-pretrained.json \
@@ -507,7 +509,7 @@ Harvey split lists are hardcoded inside the script.
 
 ```bash
 torchrun --nproc_per_node=2 train_change.py \
-  --backbone cvit-pretrained --encoder_weights 400m \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
   --encoder_depth 12 --in_channels 3 \
   --dataset_name harvey \
   --dataset_path /nfs/h100/raid/rs/harvey/harvey \
@@ -527,7 +529,7 @@ torchrun --nproc_per_node=2 train_change.py \
 
 ```bash
 torchrun --nproc_per_node=2 train_change.py \
-  --backbone cvit-pretrained --encoder_weights 400m \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
   --encoder_depth 12 --in_channels 10 \
   --dataset_name harvey \
   --dataset_path /nfs/h100/raid/rs/harvey/harvey \
@@ -549,7 +551,7 @@ torchrun --nproc_per_node=2 train_change.py \
 
 ```bash
 torchrun --nproc_per_node=2 train_change.py \
-  --backbone cvit-pretrained --encoder_weights 400m \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
   --encoder_depth 12 --in_channels 3 \
   --dataset_name OSCD \
   --dataset_path /nfs/ap/mnt/frtn/OSCD/ \
@@ -570,7 +572,7 @@ torchrun --nproc_per_node=2 train_change.py \
 `eval_bands_cd.py` (non-SAR main) `channel_vit_order`: `['B02','B03','B04','B05','B06','B07','B08','B8A','B11','B12','VV','VH']` (uppercase, full names).
 
 ```bash
-CKPT=/nfs/ap/mnt/frtn/rs-multiband/ckpt_rs_finetune/change_detection/cvit_harvey_cd_rgb_E9/best_model.pth
+CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/change_detection/cvit_harvey_cd_rgb_E9/best_model.pth
 
 python eval_bands_cd.py \
   --model_config configs/cvit-pretrained.json \
@@ -587,7 +589,7 @@ python eval_bands_cd.py \
 ### CD Eval — S2 → S2+S1 (Harvey)
 
 ```bash
-CKPT=/nfs/ap/mnt/frtn/rs-multiband/ckpt_rs_finetune/change_detection/cvit_harvey_cd_s2_E9/best_model.pth
+CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/change_detection/cvit_harvey_cd_s2_E9/best_model.pth
 
 python eval_bands_cd.py \
   --model_config configs/cvit-pretrained.json \
@@ -605,7 +607,7 @@ python eval_bands_cd.py \
 ### OSCD Eval — S2 → S2+S1
 
 ```bash
-CKPT=/nfs/ap/mnt/frtn/rs-multiband/ckpt_rs_finetune/change_detection/cvit_oscd_cd_rgb_E9/best_model.pth
+CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/change_detection/cvit_oscd_cd_rgb_E9/best_model.pth
 
 python eval_bands_cd.py \
   --model_config configs/cvit-pretrained.json \
@@ -712,7 +714,7 @@ python train_classifier.py \
 
 ```bash
 for EXP in ibot_eurosat_rgb_baseline ibot_eurosat_rgb_dropout; do
-  CKPT=/nfs/ap/mnt/frtn/ckpt_rs_finetune/classification/${EXP}/best-model.ckpt
+  CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/classification/${EXP}/best-model.ckpt
   python eval_bands_cls.py \
     --model_config configs/ibot-B.json \
     --dataset_config configs/m_eurosat.json \
@@ -729,7 +731,7 @@ done
 
 ```bash
 for EXP in ibot_eurosat_s2_baseline ibot_eurosat_s2_dropout; do
-  CKPT=/nfs/ap/mnt/frtn/ckpt_rs_finetune/classification/${EXP}/best-model.ckpt
+  CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/classification/${EXP}/best-model.ckpt
   python eval_bands_cls.py \
     --model_config configs/ibot-B.json \
     --dataset_config configs/m_eurosat.json \
@@ -822,7 +824,7 @@ python train_classifier.py \
 
 ```bash
 for EXP in dinov2_eurosat_rgb_baseline dinov2_eurosat_rgb_dropout; do
-  CKPT=/nfs/ap/mnt/frtn/ckpt_rs_finetune/classification/${EXP}/best-model.ckpt
+  CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/classification/${EXP}/best-model.ckpt
   python eval_bands_cls.py \
     --model_config configs/dinov2.json \
     --dataset_config configs/m_eurosat.json \
@@ -838,7 +840,7 @@ done
 ### Eval — S2 → S2+S1
 
 ```bash
-CKPT=/nfs/ap/mnt/frtn/ckpt_rs_finetune/classification/dinov2_eurosat_s2_baseline/best-model.ckpt
+CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/classification/dinov2_eurosat_s2_baseline/best-model.ckpt
 python eval_bands_cls.py \
   --model_config configs/dinov2.json \
   --dataset_config configs/m_eurosat.json \
@@ -916,7 +918,7 @@ python train_classifier.py \
 
 ```bash
 for EXP in dinov3_eurosat_rgb_baseline dinov3_eurosat_rgb_dropout; do
-  CKPT=/nfs/ap/mnt/frtn/ckpt_rs_finetune/classification/${EXP}/best-model.ckpt
+  CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/classification/${EXP}/best-model.ckpt
   python eval_bands_cls.py \
     --model_config configs/dinov3.json \
     --dataset_config configs/m_eurosat.json \
@@ -993,7 +995,7 @@ python train_classifier.py \
 
 ```bash
 for EXP in vitb_eurosat_rgb_baseline vitb_eurosat_rgb_dropout; do
-  CKPT=/nfs/ap/mnt/frtn/ckpt_rs_finetune/classification/${EXP}/best-model.ckpt
+  CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/classification/${EXP}/best-model.ckpt
   python eval_bands_cls.py \
     --model_config configs/timm_vit-b.json \
     --dataset_config configs/m_eurosat.json \
@@ -1009,7 +1011,7 @@ done
 ### Eval — S2 → S2+S1
 
 ```bash
-CKPT=/nfs/ap/mnt/frtn/ckpt_rs_finetune/classification/vitb_eurosat_s2_baseline/best-model.ckpt
+CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/classification/vitb_eurosat_s2_baseline/best-model.ckpt
 python eval_bands_cls.py \
   --model_config configs/timm_vit-b.json \
   --dataset_config configs/m_eurosat.json \
