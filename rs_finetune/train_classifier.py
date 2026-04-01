@@ -1,39 +1,34 @@
+import math
 import os
+import random
 import shutil
+from argparse import ArgumentParser
+
+import pytorch_lightning as pl
 import torch
 import torchvision
-import math
-import numpy as np
-import pytorch_lightning as pl
-import torch.nn as nn
-import torch.nn.functional as F
-
-from argparse import ArgumentParser
+from pytorch_lightning.callbacks import Callback, ModelCheckpoint
 from torch.utils.data import DataLoader
+from torchmetrics import Accuracy, AveragePrecision, F1Score
 from torchvision.transforms import v2
 
-from change_detection_pytorch.datasets import (#UCMerced, 
-                                        # build_transform, 
-                                        BigearthnetDataModule, 
-                                        EuroSATCombinedDataset, 
-                                        So2SatDataset, mBigearthnet, mEurosat, BrickKiln
-                                        )
-from change_detection_pytorch.encoders._utils import adjust_state_dict_prefix
-from utils import get_band_indices, get_band_orders, get_band_indices_cvit_so2sat, create_collate_fn
-
-from torchmetrics import Accuracy, AveragePrecision, F1Score
-# from aim.pytorch_lightning import AimLogger
-from classifier_utils import load_encoder, ChannelDropout, register_channel_embed_gradient_mask
-
-from torchmetrics import Accuracy, AveragePrecision, F1Score
-from aim.pytorch_lightning import AimLogger
-
-from pytorch_lightning.callbacks import Callback, ModelCheckpoint
-
 from callbacks import CurriculumChannelSamplingCallback
+from change_detection_pytorch.datasets import (  # UCMerced,
+    # build_transform,
+    BigearthnetDataModule,
+    BrickKiln,
+    So2SatDataset,
+    mBigearthnet,
+    mEurosat,
+)
+from change_detection_pytorch.encoders._utils import adjust_state_dict_prefix
 
+# from aim.pytorch_lightning import AimLogger
+from classifier_utils import ChannelDropout, load_encoder, register_channel_embed_gradient_mask
+from utils import create_collate_fn, get_band_indices, get_band_indices_cvit_so2sat, get_band_orders
 
-torch.set_float32_matmul_precision('medium')
+torch.set_float32_matmul_precision("medium")
+
 
 class WarmupCosineAnnealingLR(torch.optim.lr_scheduler.CosineAnnealingLR):
     def __init__(self, optimizer, warmup_epochs, total_epochs, warmup_start_lr=0, eta_min=0, last_epoch=-1):
@@ -41,80 +36,122 @@ class WarmupCosineAnnealingLR(torch.optim.lr_scheduler.CosineAnnealingLR):
         self.total_epochs = total_epochs
         self.warmup_start_lr = warmup_start_lr
         self.eta_min = eta_min
-        super(WarmupCosineAnnealingLR, self).__init__(optimizer, T_max=total_epochs, eta_min=eta_min, last_epoch=last_epoch)
+        super().__init__(optimizer, T_max=total_epochs, eta_min=eta_min, last_epoch=last_epoch)
 
     def get_lr(self):
         if self.last_epoch < self.warmup_epochs:
-            return [self.warmup_start_lr + (base_lr - self.warmup_start_lr) * (self.last_epoch + 1) / self.warmup_epochs for base_lr in self.base_lrs]
+            return [
+                self.warmup_start_lr + (base_lr - self.warmup_start_lr) * (self.last_epoch + 1) / self.warmup_epochs
+                for base_lr in self.base_lrs
+            ]
         else:
-            cos_val = 0.5 * (1.0 + math.cos(math.pi * (self.last_epoch - self.warmup_epochs) / (self.total_epochs - self.warmup_epochs)))
-            return [max(base_lr * (self.eta_min + (1 - self.eta_min) * cos_val), self.eta_min) for base_lr in self.base_lrs]
+            cos_val = 0.5 * (
+                1.0
+                + math.cos(math.pi * (self.last_epoch - self.warmup_epochs) / (self.total_epochs - self.warmup_epochs))
+            )
+            return [
+                max(base_lr * (self.eta_min + (1 - self.eta_min) * cos_val), self.eta_min) for base_lr in self.base_lrs
+            ]
+
 
 class LearningRateLogger(Callback):
     def on_train_epoch_start(self, trainer, pl_module):
         # Get the current learning rate from the optimizer
-        lr = float(trainer.optimizers[0].param_groups[0]['lr'])
+        lr = float(trainer.optimizers[0].param_groups[0]["lr"])
         # # Log the learning rate using your chosen logging framework
         trainer.logger.experiment.track(lr, name="learning_rate", step=trainer.global_step)
 
 
 class Classifier(pl.LightningModule):
-
-    def __init__(self, backbone_name, backbone_weights, in_features, num_classes,
-                  lr, scheduler, checkpoint_path, only_head, warmup_steps, eta_min,
-                  warmup_start_lr, weight_decay, mixup, prefix='backbone', optimizer='adamw', frozen_channel_embed=False,
-                  enable_sample=False, min_sample_channels=1, shared_proj=False, add_ch_embed=True, multilabel=False, bands=['B04', 'B03', 'B02'],
-                  enable_multiband_input=False, multiband_channel_count=12, pooling_mode: str = "cls",
-                  freeze_unused_channel_embeds: bool = False, channel_embed_reg_lambda: float = 0.0,
-                  enable_channel_gate: bool = False,
-                  channel_dropout_rate: float = 0.0, min_drop_channels: int = 1):
+    def __init__(
+        self,
+        backbone_name,
+        backbone_weights,
+        in_features,
+        num_classes,
+        lr,
+        scheduler,
+        checkpoint_path,
+        only_head,
+        warmup_steps,
+        eta_min,
+        warmup_start_lr,
+        weight_decay,
+        mixup,
+        prefix="backbone",
+        optimizer="adamw",
+        frozen_channel_embed=False,
+        enable_sample=False,
+        min_sample_channels=1,
+        shared_proj=False,
+        add_ch_embed=True,
+        multilabel=False,
+        bands=["B04", "B03", "B02"],
+        enable_multiband_input=False,
+        multiband_channel_count=12,
+        pooling_mode: str = "cls",
+        color_blind=False,
+        freeze_unused_channel_embeds: bool = False,
+        channel_embed_reg_lambda: float = 0.0,
+        enable_channel_gate: bool = False,
+        channel_dropout_rate: float = 0.0,
+        min_drop_channels: int = 1,
+    ):
         super().__init__()
         self.in_features = in_features
-        self.channel_dropout = ChannelDropout(p=channel_dropout_rate, min_channels=min_drop_channels) if channel_dropout_rate > 0 else None
+        self.channel_dropout = (
+            ChannelDropout(p=channel_dropout_rate, min_channels=min_drop_channels) if channel_dropout_rate > 0 else None
+        )
         self.lr = lr
         self.scheduler = scheduler
         self.only_head = only_head
         self.multilabel = multilabel
         self.backbone_name = backbone_name
         self.bands = bands
-        self.enable_sample=enable_sample
+        self.enable_sample = enable_sample
         self.shared_proj = shared_proj
         self.add_ch_embed = add_ch_embed
         self.optimizer = optimizer
 
         self.enable_multiband_input = enable_multiband_input
         self.multiband_channel_count = multiband_channel_count
-        
-        if 'satlas' in backbone_weights and 'ms' not in backbone_weights:
+
+        self.color_blind = color_blind
+        if "satlas" in backbone_weights and "ms" not in backbone_weights:
             checkpoint = torch.load(checkpoint_path)
-            if prefix == 'encoder':
-                new_state_dict = adjust_state_dict_prefix(checkpoint['state_dict'], prefix, f'{prefix}.', 0)
+            if prefix == "encoder":
+                new_state_dict = adjust_state_dict_prefix(checkpoint["state_dict"], prefix, f"{prefix}.", 0)
                 self.encoder = torchvision.models.swin_v2_b()
                 self.encoder.head = torch.nn.Linear(in_features, num_classes)
                 self.encoder.load_state_dict(new_state_dict)
             else:
-                new_state_dict = adjust_state_dict_prefix(checkpoint, prefix, f'{prefix}.', 0)
+                new_state_dict = adjust_state_dict_prefix(checkpoint, prefix, f"{prefix}.", 0)
                 self.encoder = torchvision.models.swin_v2_b()
                 self.encoder.load_state_dict(new_state_dict)
                 self.encoder.head = torch.nn.Linear(in_features, num_classes)
         else:
-            self.encoder = load_encoder(backbone_name, backbone_weights, 
-                                        enable_sample, shared_proj, add_ch_embed, 
-                                        enable_multiband_input=self.enable_multiband_input, 
-                                        multiband_channel_count=self.multiband_channel_count,
-                                        min_sample_channels=min_sample_channels,
-                                        pooling_mode=pooling_mode,
-                                        enable_channel_gate=enable_channel_gate)
+            self.encoder = load_encoder(
+                backbone_name,
+                backbone_weights,
+                enable_sample,
+                shared_proj,
+                add_ch_embed,
+                color_blind,
+                enable_multiband_input=self.enable_multiband_input,
+                multiband_channel_count=self.multiband_channel_count,
+                min_sample_channels=min_sample_channels,
+                pooling_mode=pooling_mode,
+                enable_channel_gate=enable_channel_gate,
+            )
             self.classifier = torch.nn.Linear(in_features, num_classes)
-            if 'ms' in backbone_weights:
+            if "ms" in backbone_weights:
                 self.global_average_pooling = torch.nn.AdaptiveAvgPool2d(1)
-                self.norm_layer = torch.nn.LayerNorm([1024, 4, 4]) 
+                self.norm_layer = torch.nn.GroupNorm(num_groups=1, num_channels=1024)
         if multilabel:
             self.criterion = torch.nn.MultiLabelSoftMarginLoss()
-            self.map_score = AveragePrecision(num_classes=num_classes, average='micro', task='binary')
-            self.f1score =  F1Score(task='multilabel', num_labels=num_classes, threshold=0.5, average='micro') 
-            self.accuracy = Accuracy(task='multilabel', num_labels=num_classes, threshold=0.5, average='micro')
-
+            self.map_score = AveragePrecision(num_classes=num_classes, average="micro", task="binary")
+            self.f1score = F1Score(task="multilabel", num_labels=num_classes, threshold=0.5, average="micro")
+            self.accuracy = Accuracy(task="multilabel", num_labels=num_classes, threshold=0.5, average="micro")
 
         else:
             self.criterion = torch.nn.CrossEntropyLoss()
@@ -126,10 +163,14 @@ class Classifier(pl.LightningModule):
         self.warmup_start_lr = warmup_start_lr
         self.weight_decay = weight_decay
         if frozen_channel_embed:
-            for name, param in self.encoder.named_parameters(): 
+            for name, param in self.encoder.named_parameters():
                 if "channel_embed" in name:
                     param.requires_grad = False
-        elif freeze_unused_channel_embeds and hasattr(self.encoder, 'patch_embed') and hasattr(self.encoder.patch_embed, 'channel_embed'):
+        elif (
+            freeze_unused_channel_embeds
+            and hasattr(self.encoder, "patch_embed")
+            and hasattr(self.encoder.patch_embed, "channel_embed")
+        ):
             register_channel_embed_gradient_mask(
                 self.encoder.patch_embed.channel_embed,
                 set(get_band_indices(bands)),
@@ -137,7 +178,11 @@ class Classifier(pl.LightningModule):
         self.freeze_unused_channel_embeds = freeze_unused_channel_embeds
         self.channel_embed_reg_lambda = channel_embed_reg_lambda
         self._pretrained_channel_embed = None
-        if channel_embed_reg_lambda > 0 and hasattr(self.encoder, 'patch_embed') and hasattr(self.encoder.patch_embed, 'channel_embed'):
+        if (
+            channel_embed_reg_lambda > 0
+            and hasattr(self.encoder, "patch_embed")
+            and hasattr(self.encoder.patch_embed, "channel_embed")
+        ):
             self._pretrained_channel_embed = self.encoder.patch_embed.channel_embed.data.clone()
         self.mixup = v2.MixUp(num_classes=num_classes) if mixup else None
 
@@ -148,9 +193,9 @@ class Classifier(pl.LightningModule):
             zeros = torch.zeros((x.shape[0], 2, x.shape[2], x.shape[3]), dtype=x.dtype, device=x.device)
             x = torch.cat([x, zeros], dim=1)
         # with torch.no_grad():
-        if 'satlas' in self.backbone_weights:
+        if "satlas" in self.backbone_weights:
             B, C, H, W = x.shape
-            if 'ms' in self.backbone_weights:
+            if "ms" in self.backbone_weights:
                 expected_channels = 9
                 if self.enable_multiband_input:
                     expected_channels = self.multiband_channel_count
@@ -169,69 +214,108 @@ class Classifier(pl.LightningModule):
                 feats = torch.flatten(feats, 1)
             else:
                 return self.encoder(x)
-        elif 'cvit-pretrained' in self.backbone_name.lower():
+        elif "cvit-pretrained" in self.backbone_name.lower():
             feats = self.encoder(x, channel_idxs=get_band_indices(self.bands))
-        elif 'cvit' in self.backbone_name.lower():
+        elif "cvit" in self.backbone_name.lower():
             channels = torch.tensor([get_band_indices_cvit_so2sat(self.bands)]).cuda()
-            feats = self.encoder(x, extra_tokens={"channels":channels})
-        elif 'anysat' in self.backbone_name.lower():
-            modalities = {3: '_rgb', 
-                          10: '_s2', 
-                          12: '_s2_s1'}
-            feats = self.encoder({modalities[len(self.bands)]: x}, patch_size=10, output='tile')
-        elif 'ms' in self.backbone_weights:
+            feats = self.encoder(x, extra_tokens={"channels": channels})
+        elif "anysat" in self.backbone_name.lower():
+            modalities = {3: "_rgb", 10: "_s2", 12: "_s2_s1"}
+            feats = self.encoder({modalities[len(self.bands)]: x}, patch_size=10, output="tile")
+        elif "ms" in self.backbone_weights:
             feats = self.encoder(x)[-1]
             feats = self.norm_layer(feats)
             feats = self.global_average_pooling(feats)
             feats = torch.flatten(feats, 1)
-        elif 'clay' in self.backbone_name.lower() or 'dofa' in self.backbone_name.lower():
+        elif "clay" in self.backbone_name.lower() or "dofa" in self.backbone_name.lower():
             feats = self.encoder(x, metadata)
-        elif 'terrafm' in self.backbone_name.lower():
+        elif "prithvi" in self.backbone_name.lower():
+            target_channels = self.encoder.patch_embed.proj.in_channels
+            if x.shape[1] < target_channels:
+                zeros = torch.zeros(
+                    x.shape[0],
+                    target_channels - x.shape[1],
+                    x.shape[2],
+                    x.shape[3],
+                    dtype=x.dtype,
+                    device=x.device,
+                )
+                x = torch.cat([x, zeros], dim=1)
+            feats = self.encoder(x)
+        elif "terrafm" in self.backbone_name.lower():
             feats = self.encoder(x)
         elif "dinov3" in self.backbone_name.lower():
-            feats = self.encoder(x).last_hidden_state[:, 0]
+            if self.enable_sample and self.training:
+                c = x.shape[1]
+                c_new = random.randint(1, c)
+                channels = random.sample(range(c), k=c_new)
+                mask = x.new_zeros(c)
+                for idx in channels:
+                    mask[idx] = 1.0
+                x = x * mask.view(1, c, 1, 1)
+            out = self.encoder(x)
+            if hasattr(out, "last_hidden_state"):
+                feats = out.last_hidden_state[:, 0]
+            elif isinstance(out, (list, tuple)):
+                feats = out[0]
+                if feats.dim() > 2:
+                    feats = feats[:, 0]
+            else:
+                feats = out
         else:
             feats = self.encoder(x)
         logits = self.classifier(feats)
         return logits
 
     def training_step(self, batch, batch_idx):
-        mixup=True if self.mixup else False
+        mixup = True if self.mixup else False
 
         loss, acc, map_score, f1score = self.shared_step(batch, mixup=mixup)
-        self.log('train/loss', loss, prog_bar=True)
-        self.log('train/acc', acc, prog_bar=True)
+        self.log("train/loss", loss, prog_bar=True)
+        self.log("train/acc", acc, prog_bar=True)
         if self.multilabel:
-            self.log('train/map_score', map_score, prog_bar=True)
-            self.log('train/f1score', f1score, prog_bar=True)
+            self.log("train/map_score", map_score, prog_bar=True)
+            self.log("train/f1score", f1score, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         loss, acc, map_score, f1score = self.shared_step(batch)
-        self.log('val/loss', loss, prog_bar=True)
-        self.log('val/acc', acc, prog_bar=True)
+        self.log("val/loss", loss, prog_bar=True)
+        self.log("val/acc", acc, prog_bar=True)
         if self.multilabel:
-            self.log('val/map_score', map_score, prog_bar=True)
-            self.log('val/f1score', f1score, prog_bar=True)
+            self.log("val/map_score", map_score, prog_bar=True)
+            self.log("val/f1score", f1score, prog_bar=True)
         return loss
 
     def shared_step(self, batch, mixup=False):
-        if 'ben' in args.dataset_name.lower() or 'eurosat' in args.dataset_name.lower() or 'so2sat' in args.dataset_name.lower() or 'brick' in args.dataset_name.lower():
+        if (
+            "ben" in args.dataset_name.lower()
+            or "eurosat" in args.dataset_name.lower()
+            or "so2sat" in args.dataset_name.lower()
+            or "brick" in args.dataset_name.lower()
+        ):
             x, y, metadata = batch
         else:
             x, y = batch
         if mixup:
             x, y = self.mixup(x, y)
-        
-        if 'clay' in self.backbone_name.lower():
+
+        if "clay" in self.backbone_name.lower():
             logits = self(x, metadata)
-        elif 'dofa' in self.backbone_name.lower():
-            logits = self(x, metadata[0]['waves'])
+        elif "dofa" in self.backbone_name.lower():
+            logits = self(x, metadata[0]["waves"])
         else:
             logits = self(x)
         loss = self.criterion(logits, y)
         if self.channel_embed_reg_lambda > 0 and self._pretrained_channel_embed is not None:
-            embed_reg = (self.encoder.patch_embed.channel_embed - self._pretrained_channel_embed.to(self.encoder.patch_embed.channel_embed.device)).pow(2).mean()
+            embed_reg = (
+                (
+                    self.encoder.patch_embed.channel_embed
+                    - self._pretrained_channel_embed.to(self.encoder.patch_embed.channel_embed.device)
+                )
+                .pow(2)
+                .mean()
+            )
             loss = loss + self.channel_embed_reg_lambda * embed_reg
         if mixup:
             y = torch.argmax(y, dim=1)
@@ -248,110 +332,133 @@ class Classifier(pl.LightningModule):
             f1score = None
         return loss, acc, map_score, f1score
 
-
-
     def configure_optimizers(self):
         max_epochs = self.trainer.max_epochs
         if self.only_head:
-            if 'satlas' in self.backbone_weights and 'ms' not in self.backbone_weights:
+            if "satlas" in self.backbone_weights and "ms" not in self.backbone_weights:
                 parameters = self.encoder.head.parameters()
             else:
                 parameters = self.classifier.parameters()
         else:
             parameters = self.parameters()
 
-        if self.optimizer == 'adamw':
-            optimizer = torch.optim.AdamW(parameters, eps=1e-8, betas=(0.9, 0.999), lr=self.lr, weight_decay=self.weight_decay)
-        elif self.optimizer == 'adam':
+        if self.optimizer == "adamw":
+            optimizer = torch.optim.AdamW(
+                parameters, eps=1e-8, betas=(0.9, 0.999), lr=self.lr, weight_decay=self.weight_decay
+            )
+        elif self.optimizer == "adam":
             optimizer = torch.optim.Adam(parameters, lr=self.lr, weight_decay=self.weight_decay)
-        elif self.optimizer == 'sgd':
+        elif self.optimizer == "sgd":
             optimizer = torch.optim.SGD(parameters, lr=self.lr, momentum=0.9, weight_decay=self.weight_decay)
         else:
             raise ValueError(f"Unsupported optimizer type: {self.optimizer}")
 
-        if self.scheduler == 'cosine':
-            scheduler = WarmupCosineAnnealingLR(optimizer, warmup_epochs=self.warmup_steps, total_epochs=max_epochs, eta_min=self.eta_min, warmup_start_lr=self.warmup_start_lr)
-        elif self.scheduler == 'multistep':
-            scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[int(0.6*max_epochs), int(0.8*max_epochs)])
-        elif self.scheduler == 'step':
-            scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=int(0.1*max_epochs), gamma=0.1)
+        if self.scheduler == "cosine":
+            scheduler = WarmupCosineAnnealingLR(
+                optimizer,
+                warmup_epochs=self.warmup_steps,
+                total_epochs=max_epochs,
+                eta_min=self.eta_min,
+                warmup_start_lr=self.warmup_start_lr,
+            )
+        elif self.scheduler == "multistep":
+            scheduler = torch.optim.lr_scheduler.MultiStepLR(
+                optimizer, milestones=[int(0.6 * max_epochs), int(0.8 * max_epochs)]
+            )
+        elif self.scheduler == "step":
+            scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=int(0.1 * max_epochs), gamma=0.1)
         else:
             raise ValueError(f"Unsupported scheduler type: {self.scheduler}")
 
         return [optimizer], [scheduler]
-        
 
-if __name__ == '__main__':
 
+if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument('--device', type=int, default=1)
-    parser.add_argument('--root', type=str, default='')
-    parser.add_argument('--epoch', type=int, default=100)
-    parser.add_argument('--base_dir', type=str, default='')
-    parser.add_argument('--backbone', type=str, default='ibot-B')
-    parser.add_argument('--encoder_weights', type=str, default='imagenet')
-    parser.add_argument('--batch_size', type=int, default=32)
-    parser.add_argument('--dataset_name', type=str, default='')
-    parser.add_argument('--in_features', type=int, default=768)
-    parser.add_argument('--num_classes', type=int, default=1)
-    parser.add_argument('--experiment_name', type=str, default='')
-    parser.add_argument('--mixup', action="store_true")
-    parser.add_argument('--only_head', action="store_true")
-    parser.add_argument('--frozen_channel_embed', action="store_true")
-    parser.add_argument('--lr', type=float, default=1e-3)
-    parser.add_argument('--checkpoint_path', type=str, default='')
-    parser.add_argument('--warmup_steps', type=int, default=20)
-    parser.add_argument('--eta_min', type=float, default=1.0e-5)
-    parser.add_argument('--warmup_start_lr', type=float, default=1.0e-7)
-    parser.add_argument('--weight_decay', type=float, default=0.05)
-    parser.add_argument('--splits_dir', type=str, default='')
-    parser.add_argument('--fill_zeros', action="store_true")
-    parser.add_argument('--seed', type=int, default=42)
-    parser.add_argument('--optimizer', type=str, default='adamw')
-    parser.add_argument('--scheduler', type=str, default='cosine')
-    parser.add_argument('--num_nodes', type=int, default=1)
-    parser.add_argument('--image_size', type=int, default=128)
-    parser.add_argument('--accumulate_grad_batches', type=int, default=1)
-    parser.add_argument('--num_workers', type=int, default=16)
-    parser.add_argument('--multiband_channel_count', type=int, default=12)
-    parser.add_argument('--enable_sample', action='store_true')
-    parser.add_argument('--min_sample_channels', type=int, default=1,
-                        help='χViT HCS: minimum channels sampled per forward')
-    parser.add_argument('--pooling_mode', type=str, default='cls', choices=['cls', 'channel_mean', 'cls+channel_mean'],
-                        help='χViT: cls, channel_mean (channel-count-invariant), cls+channel_mean')
-    parser.add_argument('--freeze_unused_channel_embeds', action='store_true',
-                        help='χViT: freeze embeddings for bands not in --bands')
-    parser.add_argument('--channel_embed_reg_lambda', type=float, default=0.0,
-                        help='χViT: L2 reg toward pretrained channel embeddings')
-    parser.add_argument('--enable_channel_gate', action='store_true',
-                        help='χViT: learnable per-channel gates')
-    parser.add_argument('--curriculum_sampling', action='store_true',
-                        help='Anneal HCS/channel dropout aggressiveness over epochs')
-    parser.add_argument('--channel_dropout_rate', type=float, default=0.0,
-                        help='Randomly drop channels during training; χViT uses HCS instead')
-    parser.add_argument('--min_drop_channels', type=int, default=1,
-                        help='Minimum channels to keep when channel dropout active')
-    parser.add_argument('--shared_proj', action='store_true')
-    parser.add_argument('--enable_multiband_input', action='store_true')
-    parser.add_argument('--add_ch_embed', action='store_true')
-    parser.add_argument("--bands", nargs="+", type=str, default=['B04', 'B03', 'B02']) # ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B11', 'B12', 'VH', 'VH','VV', 'VV']
+    parser.add_argument("--device", type=int, default=1)
+    parser.add_argument("--root", type=str, default="")
+    parser.add_argument("--epoch", type=int, default=100)
+    parser.add_argument("--base_dir", type=str, default="")
+    parser.add_argument("--backbone", type=str, default="ibot-B")
+    parser.add_argument("--encoder_weights", type=str, default="imagenet")
+    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--dataset_name", type=str, default="")
+    parser.add_argument("--in_features", type=int, default=768)
+    parser.add_argument("--num_classes", type=int, default=1)
+    parser.add_argument("--experiment_name", type=str, default="")
+    parser.add_argument("--mixup", action="store_true")
+    parser.add_argument("--only_head", action="store_true")
+    parser.add_argument("--frozen_channel_embed", action="store_true")
+    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--checkpoint_path", type=str, default="")
+    parser.add_argument("--warmup_steps", type=int, default=20)
+    parser.add_argument("--eta_min", type=float, default=1.0e-5)
+    parser.add_argument("--warmup_start_lr", type=float, default=1.0e-7)
+    parser.add_argument("--weight_decay", type=float, default=0.05)
+    parser.add_argument("--splits_dir", type=str, default="")
+    parser.add_argument("--fill_zeros", action="store_true")
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--optimizer", type=str, default="adamw")
+    parser.add_argument("--scheduler", type=str, default="cosine")
+    parser.add_argument("--num_nodes", type=int, default=1)
+    parser.add_argument("--image_size", type=int, default=128)
+    parser.add_argument("--accumulate_grad_batches", type=int, default=1)
+    parser.add_argument("--num_workers", type=int, default=16)
+    parser.add_argument("--multiband_channel_count", type=int, default=12)
+    parser.add_argument("--enable_sample", action="store_true")
+    parser.add_argument(
+        "--min_sample_channels", type=int, default=1, help="χViT HCS: minimum channels sampled per forward"
+    )
+    parser.add_argument(
+        "--pooling_mode",
+        type=str,
+        default="cls",
+        choices=["cls", "channel_mean", "cls+channel_mean"],
+        help="χViT: cls, channel_mean (channel-count-invariant), cls+channel_mean",
+    )
+    parser.add_argument(
+        "--freeze_unused_channel_embeds", action="store_true", help="χViT: freeze embeddings for bands not in --bands"
+    )
+    parser.add_argument(
+        "--channel_embed_reg_lambda", type=float, default=0.0, help="χViT: L2 reg toward pretrained channel embeddings"
+    )
+    parser.add_argument("--enable_channel_gate", action="store_true", help="χViT: learnable per-channel gates")
+    parser.add_argument(
+        "--curriculum_sampling", action="store_true", help="Anneal HCS/channel dropout aggressiveness over epochs"
+    )
+    parser.add_argument(
+        "--channel_dropout_rate",
+        type=float,
+        default=0.0,
+        help="Randomly drop channels during training; χViT uses HCS instead",
+    )
+    parser.add_argument(
+        "--min_drop_channels", type=int, default=1, help="Minimum channels to keep when channel dropout active"
+    )
+    parser.add_argument("--shared_proj", action="store_true")
+    parser.add_argument("--enable_multiband_input", action="store_true")
+    parser.add_argument("--add_ch_embed", action="store_true")
+    parser.add_argument("--color_blind", action="store_true")
+    parser.add_argument(
+        "--bands", nargs="+", type=str, default=["B04", "B03", "B02"]
+    )  # ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B11', 'B12', 'VH', 'VH','VV', 'VV']
 
     args = parser.parse_args()
     pl.seed_everything(args.seed)
 
-    image_size =  (args.image_size // 14) * 14 if 'dino' in args.backbone else args.image_size
+    image_size = (args.image_size // 14) * 14 if "dino" in args.backbone else args.image_size
 
     bands_order = get_band_orders(model_name=args.backbone)
     rgb_bands = get_band_orders(model_name=args.backbone, rgb=True)
 
-    custom_collate_fn = create_collate_fn('classification')
-    
-    if 'eurosat' in args.dataset_name.lower():
+    custom_collate_fn = create_collate_fn("classification")
+
+    if "eurosat" in args.dataset_name.lower():
         # ms_dir = args.base_dir
         # sar_dir = args.base_dir.replace('-MS', "-SAR")
         # split_path = args.splits_dir
         # bands = args.bands  # Select bands
-        
+
         # dataset_train = EuroSATCombinedDataset(ms_dir, sar_dir, bands, split_path, img_size=args.image_size, split='train')
         # dataloader_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=4, collate_fn=custom_collate_fn)
 
@@ -359,98 +466,159 @@ if __name__ == '__main__':
         # dataloader_val = DataLoader(dataset_val, batch_size=args.batch_size, shuffle=False, num_workers=4, collate_fn=custom_collate_fn)
         # num_classes = args.num_classes
         # multilabel=False
-    
-        dataset_train = mEurosat(split='train', bands=args.bands, img_size=args.image_size)
-        dataloader_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=custom_collate_fn)
-        dataset_val = mEurosat(split='valid', bands=args.bands, img_size=args.image_size)
-        dataloader_val = DataLoader(dataset_val, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=custom_collate_fn)
+
+        dataset_train = mEurosat(split="train", bands=args.bands, img_size=args.image_size)
+        dataloader_train = DataLoader(
+            dataset_train,
+            batch_size=args.batch_size,
+            shuffle=True,
+            num_workers=args.num_workers,
+            collate_fn=custom_collate_fn,
+        )
+        dataset_val = mEurosat(split="valid", bands=args.bands, img_size=args.image_size)
+        dataloader_val = DataLoader(
+            dataset_val,
+            batch_size=args.batch_size,
+            shuffle=False,
+            num_workers=args.num_workers,
+            collate_fn=custom_collate_fn,
+        )
 
         num_classes = dataset_train.num_classes
-        multilabel=False
-    elif 'brick' in args.dataset_name.lower():
-        dataset_train = BrickKiln(split='train', bands=args.bands, img_size=args.image_size)
-        dataloader_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=custom_collate_fn)
-        dataset_val = BrickKiln(split='valid', bands=args.bands, img_size=args.image_size)
-        dataloader_val = DataLoader(dataset_val, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=custom_collate_fn)
+        multilabel = False
+    elif "brick" in args.dataset_name.lower():
+        dataset_train = BrickKiln(split="train", bands=args.bands, img_size=args.image_size)
+        dataloader_train = DataLoader(
+            dataset_train,
+            batch_size=args.batch_size,
+            shuffle=True,
+            num_workers=args.num_workers,
+            collate_fn=custom_collate_fn,
+        )
+        dataset_val = BrickKiln(split="valid", bands=args.bands, img_size=args.image_size)
+        dataloader_val = DataLoader(
+            dataset_val,
+            batch_size=args.batch_size,
+            shuffle=False,
+            num_workers=args.num_workers,
+            collate_fn=custom_collate_fn,
+        )
 
         num_classes = dataset_train.num_classes
-        multilabel=False
-    elif 'so2sat' in args.dataset_name.lower():
-        dataset_train = So2SatDataset(split='train', bands=args.bands, img_size=args.image_size)
-        dataloader_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=custom_collate_fn)
-        dataset_val = So2SatDataset(split='valid', bands=args.bands, img_size=args.image_size)
-        dataloader_val = DataLoader(dataset_val, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=custom_collate_fn)
+        multilabel = False
+    elif "so2sat" in args.dataset_name.lower():
+        dataset_train = So2SatDataset(split="train", bands=args.bands, img_size=args.image_size)
+        dataloader_train = DataLoader(
+            dataset_train,
+            batch_size=args.batch_size,
+            shuffle=True,
+            num_workers=args.num_workers,
+            collate_fn=custom_collate_fn,
+        )
+        dataset_val = So2SatDataset(split="valid", bands=args.bands, img_size=args.image_size)
+        dataloader_val = DataLoader(
+            dataset_val,
+            batch_size=args.batch_size,
+            shuffle=False,
+            num_workers=args.num_workers,
+            collate_fn=custom_collate_fn,
+        )
 
         num_classes = dataset_train.num_classes
-        multilabel=False
-        
-    elif 'm_ben' in args.dataset_name.lower():
-        dataset_train = mBigearthnet(split='train', bands=args.bands, img_size=args.image_size)
-        dataloader_train = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=custom_collate_fn)
-        dataset_val = mBigearthnet(split='valid', bands=args.bands, img_size=args.image_size)
-        dataloader_val = DataLoader(dataset_val, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=custom_collate_fn)
+        multilabel = False
+
+    elif "m_ben" in args.dataset_name.lower():
+        dataset_train = mBigearthnet(split="train", bands=args.bands, img_size=args.image_size)
+        dataloader_train = DataLoader(
+            dataset_train,
+            batch_size=args.batch_size,
+            shuffle=True,
+            num_workers=args.num_workers,
+            collate_fn=custom_collate_fn,
+        )
+        dataset_val = mBigearthnet(split="valid", bands=args.bands, img_size=args.image_size)
+        dataloader_val = DataLoader(
+            dataset_val,
+            batch_size=args.batch_size,
+            shuffle=False,
+            num_workers=args.num_workers,
+            collate_fn=custom_collate_fn,
+        )
 
         num_classes = dataset_train.num_classes
-        multilabel=True
+        multilabel = True
 
-    elif 'ben' in args.dataset_name.lower():
+    elif "ben" in args.dataset_name.lower():
         datamodule = BigearthnetDataModule(
-        data_dir=args.base_dir,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        splits_dir=args.splits_dir,
-        fill_zeros = args.fill_zeros,
-        img_size=image_size,
-        bands=args.bands,
-        bands_order=bands_order,
-        rgb_bands=rgb_bands
+            data_dir=args.base_dir,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            splits_dir=args.splits_dir,
+            fill_zeros=args.fill_zeros,
+            img_size=image_size,
+            bands=args.bands,
+            bands_order=bands_order,
+            rgb_bands=rgb_bands,
         )
         datamodule.setup()
 
         dataloader_train = datamodule.train_dataloader()
         dataloader_val = datamodule.val_dataloader()
-        num_classes= datamodule.num_classes
-        multilabel=True
-        print(f'BEN num of classes {num_classes}')
+        num_classes = datamodule.num_classes
+        multilabel = True
+        print(f"BEN num of classes {num_classes}")
     else:
         # tr_transform = build_transform(split='train', image_size=args.image_size, mixup=args.mixup)
         # val_transform = build_transform(split='val', image_size=args.image_size)
 
-        # train_dataset = UCMerced(root=args.root, base_dir=args.base_dir, split='train', 
+        # train_dataset = UCMerced(root=args.root, base_dir=args.base_dir, split='train',
         #                         transform=tr_transform, dataset_name=args.dataset_name, image_size=args.image_size)
         # val_dataset = UCMerced(root=args.root, base_dir=args.base_dir, split='val',
         #                         transform=val_transform, dataset_name=args.dataset_name, image_size=image_size)
         # dataloader_train = DataLoader(dataset=train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
         # dataloader_val = DataLoader(dataset=val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
-        num_classes= args.num_classes
-        multilabel=False
+        num_classes = args.num_classes
+        multilabel = False
 
     print(args.encoder_weights)
-    model = Classifier(backbone_name=args.backbone, backbone_weights=args.encoder_weights,
-                       in_features=args.in_features, num_classes=num_classes,
-                         lr=args.lr, scheduler=args.scheduler, checkpoint_path=args.checkpoint_path, 
-                         only_head=args.only_head, warmup_steps=args.warmup_steps,
-                         eta_min=args.eta_min, warmup_start_lr=args.warmup_start_lr, 
-                         weight_decay=args.weight_decay, enable_sample=args.enable_sample, 
-                         min_sample_channels=args.min_sample_channels,
-                         pooling_mode=args.pooling_mode,
-                         freeze_unused_channel_embeds=args.freeze_unused_channel_embeds,
-                         channel_embed_reg_lambda=args.channel_embed_reg_lambda,
-                         enable_channel_gate=args.enable_channel_gate,
-                         channel_dropout_rate=args.channel_dropout_rate,
-                         min_drop_channels=args.min_drop_channels,
-                         frozen_channel_embed=args.frozen_channel_embed, 
-                         shared_proj=args.shared_proj, add_ch_embed=args.add_ch_embed,
-                         enable_multiband_input=args.enable_multiband_input, 
-                         multiband_channel_count=args.multiband_channel_count,
-                         mixup=args.mixup, multilabel=multilabel, bands=args.bands, optimizer=args.optimizer)
-    
-    # aim_logger = AimLogger(repo='/auto/home/anna.khosrovyan/cvit_rs_foundation_models/rs_finetune/classification', 
+    model = Classifier(
+        backbone_name=args.backbone,
+        backbone_weights=args.encoder_weights,
+        in_features=args.in_features,
+        num_classes=num_classes,
+        lr=args.lr,
+        scheduler=args.scheduler,
+        checkpoint_path=args.checkpoint_path,
+        only_head=args.only_head,
+        warmup_steps=args.warmup_steps,
+        eta_min=args.eta_min,
+        warmup_start_lr=args.warmup_start_lr,
+        weight_decay=args.weight_decay,
+        enable_sample=args.enable_sample,
+        min_sample_channels=args.min_sample_channels,
+        pooling_mode=args.pooling_mode,
+        freeze_unused_channel_embeds=args.freeze_unused_channel_embeds,
+        channel_embed_reg_lambda=args.channel_embed_reg_lambda,
+        enable_channel_gate=args.enable_channel_gate,
+        channel_dropout_rate=args.channel_dropout_rate,
+        min_drop_channels=args.min_drop_channels,
+        frozen_channel_embed=args.frozen_channel_embed,
+        shared_proj=args.shared_proj,
+        add_ch_embed=args.add_ch_embed,
+        enable_multiband_input=args.enable_multiband_input,
+        multiband_channel_count=args.multiband_channel_count,
+        mixup=args.mixup,
+        multilabel=multilabel,
+        bands=args.bands,
+        optimizer=args.optimizer,
+        color_blind=args.color_blind,
+    )
+
+    # aim_logger = AimLogger(repo='/auto/home/anna.khosrovyan/cvit_rs_foundation_models/rs_finetune/classification',
     #                        experiment=args.experiment_name)
 
-
     # checkpoints_dir = f'/nfs/ap/mnt/frtn/rs-multiband/ckpt_rs_finetune/classification/{args.experiment_name}'
-    checkpoints_dir = f'/nfs/ap/mnt/frtn/ckpt_rs_finetune/classification/{args.experiment_name}'
+    checkpoints_dir = f"/nfs/h100/raid/rs/ckpt_rs_finetune/classification/{args.experiment_name}"
     # if not os.path.exists(checkpoints_dir):
     #     os.makedirs(checkpoints_dir)
     if os.path.exists(checkpoints_dir):
@@ -468,55 +636,65 @@ if __name__ == '__main__':
     if multilabel:
         best_model_checkpoint_acc = ModelCheckpoint(
             dirpath=checkpoints_dir,
-            monitor='val/acc',         
-            save_top_k=1,               
-            mode='max',                
-            filename='best-model-acc',
+            monitor="val/acc",
+            save_top_k=1,
+            mode="max",
+            filename="best-model-acc",
             verbose=True,
-            save_last=True
+            save_last=True,
         )
         best_model_checkpoint_map = ModelCheckpoint(
             dirpath=checkpoints_dir,
-            monitor='val/map_score',         
-            save_top_k=1,               
-            mode='max',                
-            filename='best-model-map_score',
+            monitor="val/map_score",
+            save_top_k=1,
+            mode="max",
+            filename="best-model-map_score",
             verbose=True,
-            save_last=True
+            save_last=True,
         )
-        best_model_checkpoint_f1= ModelCheckpoint(
+        best_model_checkpoint_f1 = ModelCheckpoint(
             dirpath=checkpoints_dir,
-            monitor='val/f1score',         
-            save_top_k=1,               
-            mode='max',                
-            filename='best-model-f1',
+            monitor="val/f1score",
+            save_top_k=1,
+            mode="max",
+            filename="best-model-f1",
             verbose=True,
-            save_last=True
+            save_last=True,
         )
         callbacks_list = [best_model_checkpoint_f1]
         if args.curriculum_sampling and args.enable_sample:
             callbacks_list.append(CurriculumChannelSamplingCallback(n_channels=len(args.bands)))
 
-        trainer = pl.Trainer(devices=args.device, max_epochs=args.epoch, num_nodes=args.num_nodes,
-                            accumulate_grad_batches=args.accumulate_grad_batches, log_every_n_steps=1,
-                            callbacks=callbacks_list)
-                            # callbacks=[best_model_checkpoint_acc, best_model_checkpoint_map, best_model_checkpoint_f1, LearningRateLogger()])
+        trainer = pl.Trainer(
+            devices=args.device,
+            max_epochs=args.epoch,
+            num_nodes=args.num_nodes,
+            accumulate_grad_batches=args.accumulate_grad_batches,
+            log_every_n_steps=1,
+            callbacks=callbacks_list,
+        )
+        # callbacks=[best_model_checkpoint_acc, best_model_checkpoint_map, best_model_checkpoint_f1, LearningRateLogger()])
         trainer.fit(model, train_dataloaders=dataloader_train, val_dataloaders=dataloader_val)
-        
+
     else:
         best_model_checkpoint = ModelCheckpoint(
             dirpath=checkpoints_dir,
-            monitor='val/acc',         
-            save_top_k=1,               
-            mode='max',                
-            filename='best-model',
+            monitor="val/acc",
+            save_top_k=1,
+            mode="max",
+            filename="best-model",
             verbose=True,
-            save_last=True
+            save_last=True,
         )
         callbacks_list = [best_model_checkpoint]
         if args.curriculum_sampling and args.enable_sample:
             callbacks_list.append(CurriculumChannelSamplingCallback(n_channels=len(args.bands)))
-        trainer = pl.Trainer(devices=args.device, max_epochs=args.epoch, num_nodes=args.num_nodes,
-                            accumulate_grad_batches=args.accumulate_grad_batches,
-                            log_every_n_steps=1, callbacks=callbacks_list)
+        trainer = pl.Trainer(
+            devices=args.device,
+            max_epochs=args.epoch,
+            num_nodes=args.num_nodes,
+            accumulate_grad_batches=args.accumulate_grad_batches,
+            log_every_n_steps=1,
+            callbacks=callbacks_list,
+        )
         trainer.fit(model, train_dataloaders=dataloader_train, val_dataloaders=dataloader_val)

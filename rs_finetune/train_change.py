@@ -15,7 +15,7 @@ torch.set_float32_matmul_precision("medium")
 
 
 def main(args):
-    checkpoints_dir = f"/nfs/ap/mnt/frtn/rs-multiband/ckpt_rs_finetune/change_detection/{args.experiment_name}"
+    checkpoints_dir = f"/nfs/h100/raid/rs/ckpt_rs_finetune/change_detection/{args.experiment_name}"
     if not os.path.exists(checkpoints_dir):
         os.makedirs(checkpoints_dir)
 
@@ -50,6 +50,7 @@ def main(args):
         multiband_channel_count=args.multiband_channel_count,
         channel_dropout_rate=args.channel_dropout_rate,
         min_drop_channels=args.min_drop_channels,
+        color_blind=args.color_blind,
     )
     if args.load_decoder:
         checkpoint = torch.load(args.checkpoint_path, map_location=torch.device(DEVICE))
@@ -154,7 +155,6 @@ def main(args):
             fill_zeros=args.fill_zeros,
         )
         datamodule.setup()
-
         train_loader = datamodule.train_dataloader()
         valid_loader = datamodule.val_dataloader()
         print("train_loader", len(train_loader), "val_loader", len(valid_loader))
@@ -371,6 +371,7 @@ if __name__ == "__main__":
     parser.add_argument("--channel_dropout_rate", type=float, default=0.0)
     parser.add_argument("--min_drop_channels", type=int, default=1)
     parser.add_argument("--cvit_channels", nargs="+", type=int, default=[0, 1, 2])
+    parser.add_argument("--color_blind", action="store_true")
     # parser.add_argument("--bands", nargs='+', type=str, default= ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B11', 'B12', 'VH', 'VH','VV', 'VV'])
     parser.add_argument(
         "--bands", nargs="+", type=str, default=["B2", "B3", "B4", "B5", "B6", "B7", "B8", "B11", "B12", "vh", "vv"]

@@ -1,66 +1,63 @@
 import os
-import torch
-import random
-import numpy as np
-
-import torch.distributed as dist
-import change_detection_pytorch as cdp
-
-
-from change_detection_pytorch.datasets import BuildingDataset, Sen1Floods11, mCashewPlantation, mSAcrop
-from torch.utils.data import DataLoader
 from argparse import ArgumentParser
+
+import torch
+import torch.distributed as dist
 from aim.pytorch_lightning import AimLogger
+from torch.utils.data import DataLoader
+
+import change_detection_pytorch as cdp
+from change_detection_pytorch.datasets import BuildingDataset, Sen1Floods11, mCashewPlantation, mSAcrop
 from evaluator import SegEvaluator
 from utils import create_collate_fn, seed_torch
 
 torch.backends.cudnn.benchmark = False
-torch.set_float32_matmul_precision('medium')
+torch.set_float32_matmul_precision("medium")
 
 
 def main(args):
-    checkpoints_dir = f'/nfs/ap/mnt/frtn/rs-multiband/ckpt_rs_finetune/segmentation/{args.experiment_name}'
+    # checkpoints_dir = f'/nfs/ap/mnt/frtn/rs-multiband/ckpt_rs_finetune/segmentation/{args.experiment_name}'
+    checkpoints_dir = f"/nfs/h100/raid/rs/ckpt_rs_finetune/segmentation/{args.experiment_name}"
     if not os.path.exists(checkpoints_dir):
         os.makedirs(checkpoints_dir)
 
-
     aim_logger = AimLogger(
-        repo='/auto/home/anna.khosrovyan/rs_foundation_models/rs_finetune/segmentation',
-        experiment=args.experiment_name
+        repo="/auto/home/anna.khosrovyan/rs_foundation_models/rs_finetune/segmentation", experiment=args.experiment_name
     )
-    
-    DEVICE = args.device if torch.cuda.is_available() else 'cpu'
-    print('running on', DEVICE)
-    if args.decoder == 'unet':
+
+    DEVICE = args.device if torch.cuda.is_available() else "cpu"
+    print("running on", DEVICE)
+    if args.decoder == "unet":
         model = cdp.UnetSeg(
             encoder_depth=args.encoder_depth,
-            scales = [8, 4, 2, 1],
+            scales=[8, 4, 2, 1],
             encoder_name=args.backbone,  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
             encoder_weights=args.encoder_weights,  # use `imagenet` pre-trained weights for encoder initialization
             in_channels=args.in_channels,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
             classes=args.classes,  # model output channels (number of classes in your datasets)
-            decoder_channels =(768, 768, 768, 768),
+            decoder_channels=(768, 768, 768, 768),
             channels=args.cvit_channels,
             enable_sample=args.enable_sample,
             enable_multiband_input=args.enable_multiband_input,
             multiband_channel_count=args.multiband_channel_count,
             channel_dropout_rate=args.channel_dropout_rate,
             min_drop_channels=args.min_drop_channels,
+            color_blind=args.color_blind,
         )
     else:
         model = cdp.UPerNetSeg(
             encoder_depth=args.encoder_depth,
-            encoder_name=args.backbone, # choose encoder, e.g. overlap_ibot-B, mobilenet_v2 or efficientnet-b7
-            encoder_weights=args.encoder_weights, # use `imagenet` pre-trained weights for encoder initialization
-            in_channels=args.in_channels, # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+            encoder_name=args.backbone,  # choose encoder, e.g. overlap_ibot-B, mobilenet_v2 or efficientnet-b7
+            encoder_weights=args.encoder_weights,  # use `imagenet` pre-trained weights for encoder initialization
+            in_channels=args.in_channels,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
             decoder_psp_channels=args.upernet_width * 2,
             decoder_pyramid_channels=args.upernet_width,
             decoder_segmentation_channels=args.upernet_width,
             decoder_merge_policy="add",
-            classes=args.classes, # model output channels (number of classes in your datasets)
+            classes=args.classes,  # model output channels (number of classes in your datasets)
             activation=None,
             freeze_encoder=args.freeze_encoder,
-            pretrained = args.load_decoder,
+            pretrained=args.load_decoder,
             upsampling=args.upsampling,
             channels=args.cvit_channels,
             out_size=args.img_size,
@@ -69,27 +66,28 @@ def main(args):
             multiband_channel_count=args.multiband_channel_count,
             channel_dropout_rate=args.channel_dropout_rate,
             min_drop_channels=args.min_drop_channels,
+            color_blind=args.color_blind,
         )
     if args.load_from_checkpoint:
         checkpoint = torch.load(args.checkpoint_path, map_location=torch.device(DEVICE))
         msg = model.load_state_dict(checkpoint.state_dict())
-        print('Model load with message', msg)
+        print("Model load with message", msg)
 
-    if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+    if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
         args.rank = int(os.environ["RANK"])
-        args.world_size = int(os.environ['WORLD_SIZE'])
-        args.gpu = int(os.environ['LOCAL_RANK'])
+        args.world_size = int(os.environ["WORLD_SIZE"])
+        args.gpu = int(os.environ["LOCAL_RANK"])
     # launched with submitit on a slurm cluster
-    elif 'SLURM_PROCID' in os.environ:
-        args.rank = int(os.environ['SLURM_PROCID'])
+    elif "SLURM_PROCID" in os.environ:
+        args.rank = int(os.environ["SLURM_PROCID"])
         args.gpu = args.rank % torch.cuda.device_count()
     # launched naively with `python main_dino.py`
     # we manually add MASTER_ADDR and MASTER_PORT to env variables
     elif torch.cuda.is_available():
-        print('Will run the code on one GPU.')
+        print("Will run the code on one GPU.")
         args.rank, args.gpu, args.world_size = 0, 0, 1
-        os.environ['MASTER_ADDR'] = '127.0.0.1'
-        os.environ['MASTER_PORT'] = '29501'
+        os.environ["MASTER_ADDR"] = "127.0.0.1"
+        os.environ["MASTER_PORT"] = "29501"
 
     dist.init_process_group(
         backend="nccl",
@@ -97,105 +95,106 @@ def main(args):
         world_size=args.world_size,
         rank=args.rank,
     )
-    device = torch.device(f'cuda:{args.gpu}')
+    device = torch.device(f"cuda:{args.gpu}")
     torch.cuda.set_device(args.gpu)
-    print('| distributed init (rank {}): {}'.format(
-        args.rank, args.dist_url), flush=True)
+    print(f"| distributed init (rank {args.rank}): {args.dist_url}", flush=True)
     dist.barrier()
     model.to(device)
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=True)
 
     print(args.bands)
-    if 'harvey' in args.dataset_name:
-        train_dataset = BuildingDataset(split_list=f"{args.dataset_path}/train.txt", 
-                                        bands=args.bands, 
-                                        fill_zeros=args.fill_zeros,
-                                        band_repeat_count=args.band_repeat_count,
-                                        img_size=args.img_size)
-        valid_dataset = BuildingDataset(split_list=f"{args.dataset_path}/val.txt", 
-                                        bands=args.bands, 
-                                        fill_zeros=args.fill_zeros,
-                                        band_repeat_count=args.band_repeat_count,
-                                        img_size=args.img_size)
-    elif 'sen1floods11' in args.dataset_name:
-        train_dataset = Sen1Floods11(bands=args.bands,
-                                     img_size=args.img_size,
-                                    split = 'train')
-        valid_dataset = Sen1Floods11(bands=args.bands, 
-                                     img_size=args.img_size,
-                                    split = 'val')
-    elif 'crop' in args.dataset_name:
-        train_dataset = mSAcrop(split='train', 
-                                    bands=args.bands, 
-                                    fill_zeros=args.fill_zeros,
-                                    img_size=args.img_size)
-        valid_dataset = mSAcrop(split='valid', 
-                                    bands=args.bands, 
-                                    fill_zeros=args.fill_zeros,
-                                    img_size=args.img_size)
-    elif 'cashew' in args.dataset_name:
-        train_dataset = mCashewPlantation(split='train', 
-                                    bands=args.bands, 
-                                    fill_zeros=args.fill_zeros,
-                                    img_size=args.img_size)
-        valid_dataset = mCashewPlantation(split='valid', 
-                                    bands=args.bands, 
-                                    fill_zeros=args.fill_zeros,
-                                    img_size=args.img_size)
-
-    custom_collate_fn = create_collate_fn('segmentation')
+    if "harvey" in args.dataset_name:
+        train_dataset = BuildingDataset(
+            split_list=f"{args.dataset_path}/train.txt",
+            bands=args.bands,
+            fill_zeros=args.fill_zeros,
+            band_repeat_count=args.band_repeat_count,
+            img_size=args.img_size,
+        )
+        valid_dataset = BuildingDataset(
+            split_list=f"{args.dataset_path}/val.txt",
+            bands=args.bands,
+            fill_zeros=args.fill_zeros,
+            band_repeat_count=args.band_repeat_count,
+            img_size=args.img_size,
+        )
+    elif "sen1floods11" in args.dataset_name:
+        train_dataset = Sen1Floods11(bands=args.bands, img_size=args.img_size, split="train")
+        valid_dataset = Sen1Floods11(bands=args.bands, img_size=args.img_size, split="val")
+    elif "crop" in args.dataset_name:
+        train_dataset = mSAcrop(split="train", bands=args.bands, fill_zeros=args.fill_zeros, img_size=args.img_size)
+        valid_dataset = mSAcrop(split="valid", bands=args.bands, fill_zeros=args.fill_zeros, img_size=args.img_size)
+    elif "cashew" in args.dataset_name:
+        train_dataset = mCashewPlantation(
+            split="train", bands=args.bands, fill_zeros=args.fill_zeros, img_size=args.img_size
+        )
+        valid_dataset = mCashewPlantation(
+            split="valid", bands=args.bands, fill_zeros=args.fill_zeros, img_size=args.img_size
+        )
+    custom_collate_fn = create_collate_fn("segmentation")
 
     # Initialize dataloader
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=custom_collate_fn)
-    valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=custom_collate_fn)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=args.num_workers,
+        collate_fn=custom_collate_fn,
+    )
+    valid_loader = DataLoader(
+        valid_dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.num_workers,
+        collate_fn=custom_collate_fn,
+    )
 
-    if args.loss_type == 'BCEWithLogitsLoss':
+    if args.loss_type == "BCEWithLogitsLoss":
         loss = torch.nn.BCEWithLogitsLoss()
-    elif args.loss_type == 'ce':
+    elif args.loss_type == "ce":
         loss = torch.nn.CrossEntropyLoss(ignore_index=-1)
-    elif args.loss_type == 'w_ce':  # for sen1floods11
+    elif args.loss_type == "w_ce":  # for sen1floods11
         loss = cdp.utils.losses.WeightedCrossEntropy(ignore_index=-1, distribution=[0.905, 0.095])
-    elif args.loss_type == 'dice':
+    elif args.loss_type == "dice":
         loss = cdp.utils.losses.DiceLoss()
 
-
     evaluator = SegEvaluator(
-                    val_loader=valid_loader,
-                    exp_dir=checkpoints_dir,
-                    device=device,
-                    inference_mode="whole",  # or "whole", as needed
-                    sliding_inference_batch=args.batch_size,  # if using sliding mode
-                )
-
+        val_loader=valid_loader,
+        exp_dir=checkpoints_dir,
+        device=device,
+        inference_mode="whole",  # or "whole", as needed
+        sliding_inference_batch=args.batch_size,  # if using sliding mode
+    )
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, betas=(0.9, 0.999), weight_decay=args.weight_decay)
 
-    if args.lr_sched == 'warmup_cosine':
+    if args.lr_sched == "warmup_cosine":
+
         def lr_lambda(current_step, warmup_steps, warmup_lr, end_lr):
             if current_step < warmup_steps:
                 return warmup_lr + (1.0 - warmup_lr) * float((current_step + 1) / warmup_steps)
             else:
                 return end_lr
-            
-        warmup_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda step: lr_lambda(step, args.warmup_steps, args.warmup_lr, args.lr))
 
-        scheduler_steplr = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.max_epochs - args.warmup_steps)
-    
-    elif args.lr_sched == 'multistep':
-        scheduler_steplr = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[int(0.6*args.max_epochs), int(0.9*args.max_epochs)])
-    elif args.lr_sched == 'constant':
+        warmup_scheduler = torch.optim.lr_scheduler.LambdaLR(
+            optimizer, lr_lambda=lambda step: lr_lambda(step, args.warmup_steps, args.warmup_lr, args.lr)
+        )
+
+        scheduler_steplr = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=args.max_epochs - args.warmup_steps
+        )
+
+    elif args.lr_sched == "multistep":
+        scheduler_steplr = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer, milestones=[int(0.6 * args.max_epochs), int(0.9 * args.max_epochs)]
+        )
+    elif args.lr_sched == "constant":
         scheduler_steplr = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=1.0, total_iters=args.max_epochs)
 
     # create epoch runners
     # it is a simple loop of iterating over dataloader`s samples
     train_epoch = cdp.utils.train.TrainEpoch(
-        model,
-        loss=loss,
-        metrics=None,
-        optimizer=optimizer,
-        device=device,
-        verbose=True,
-        grad_accum=args.grad_accum
+        model, loss=loss, metrics=None, optimizer=optimizer, device=device, verbose=True, grad_accum=args.grad_accum
     )
 
     # train model for 60 epochs
@@ -204,7 +203,7 @@ def main(args):
     MAX_EPOCH = args.max_epochs
 
     for i in range(MAX_EPOCH):
-        print('\nEpoch: {}'.format(i))
+        print(f"\nEpoch: {i}")
         # train_loader.sampler.set_epoch(i)
         train_logs = train_epoch.run_seg(train_loader)
 
@@ -218,7 +217,7 @@ def main(args):
         # aim_logger.experiment.track(valid_logs[type(loss).__name__], name="loss_val", step=i)
 
         if args.lr_sched:
-            if args.warmup_steps!=0 and (i+1) < args.warmup_steps and args.lr_sched == 'warmup_cosine':
+            if args.warmup_steps != 0 and (i + 1) < args.warmup_steps and args.lr_sched == "warmup_cosine":
                 warmup_scheduler.step()
             else:
                 scheduler_steplr.step()
@@ -226,70 +225,76 @@ def main(args):
         metrics, used_time = evaluator(model, model_name="seg_model")
         print("Evaluation Metrics from checkpoint:", metrics)
 
-        if 'cashew' in args.dataset_name or 'crop' in args.dataset_name:
-            metric = metrics['mIoU']
+        if "cashew" in args.dataset_name or "crop" in args.dataset_name:
+            metric = metrics["mIoU"]
         else:
-            metric = metrics['IoU'][1]
+            metric = metrics["IoU"][1]
 
         if max_score < metric:
             max_score = metric
-            print('max_score', max_score)
-            torch.save(model.module.state_dict(), f'{checkpoints_dir}/best_model.pth')
-            print('Model saved!')
+            print("max_score", max_score)
+            torch.save(model.module.state_dict(), f"{checkpoints_dir}/best_model.pth")
+            print("Model saved!")
 
     with open(f"seg_{args.dataset_name}_{args.backbone}_{args.freeze_encoder}.txt", "a") as log_file:
-        log_file.write(f'{args.experiment_name}, {max_score}' + "\n")
+        log_file.write(f"{args.experiment_name}, {max_score}" + "\n")
 
-   
-    torch.save(model.module.state_dict(), f'{checkpoints_dir}/last_model.pth')
-            
+    torch.save(model.module.state_dict(), f"{checkpoints_dir}/last_model.pth")
 
-if __name__ == '__main__':
 
+if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument('--experiment_name', type=str, default='')
-    parser.add_argument('--dataset_name', type=str, default='')
-    parser.add_argument('--backbone', type=str, default='')
-    parser.add_argument('--encoder_weights', type=str, default='')
-    parser.add_argument('--encoder_depth', type=int, default=12)
+    parser.add_argument("--experiment_name", type=str, default="")
+    parser.add_argument("--dataset_name", type=str, default="")
+    parser.add_argument("--backbone", type=str, default="")
+    parser.add_argument("--encoder_weights", type=str, default="")
+    parser.add_argument("--encoder_depth", type=int, default=12)
 
-    parser.add_argument('--dataset_path', type=str, default='')
-    parser.add_argument('--metadata_path', type=str, default='')
-    parser.add_argument('--batch_size', type=int, default=32)
-    parser.add_argument('--max_epochs', type=int, default=70)
-    parser.add_argument('--lr', type=float, default=6e-5)
-    parser.add_argument('--weight_decay', type=float, default=0.01)
+    parser.add_argument("--dataset_path", type=str, default="")
+    parser.add_argument("--metadata_path", type=str, default="")
+    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--max_epochs", type=int, default=70)
+    parser.add_argument("--lr", type=float, default=6e-5)
+    parser.add_argument("--weight_decay", type=float, default=0.01)
 
-    parser.add_argument('--device', type=str, default='cuda:0')
-    parser.add_argument('--grad_accum', type=int, default=1)
-    parser.add_argument('--load_from_checkpoint', action="store_true")
-    parser.add_argument('--checkpoint_path', type=str, default='')
-    parser.add_argument('--min_lr', type=float, default=0.0)
-    parser.add_argument("--dist_url", default="env://", type=str, help="""url used to set up
-        distributed training; see https://pytorch.org/docs/stable/distributed.html""")
-    parser.add_argument('--freeze_encoder', action="store_true")
-    parser.add_argument('--load_decoder', action="store_true")
-    parser.add_argument('--fill_zeros', action="store_true")
-    parser.add_argument('--band_repeat_count', type=int, default=0)
-    parser.add_argument('--in_channels', type=int, default=3)
-    parser.add_argument('--seed', type=int, default=42)
-    parser.add_argument('--upsampling', type=float, default=4)
-    parser.add_argument('--num_workers', type=int, default=16)
-    parser.add_argument('--img_size', type=int, default=96)
-    parser.add_argument('--loss_type', type=str, default='bce')
-    parser.add_argument('--lr_sched', type=str, default='')
-    parser.add_argument('--warmup_steps', type=int, default=20)
-    parser.add_argument('--warmup_lr', type=float, default=1e-6)
-    parser.add_argument('--decoder', type=str, default='upernet')
-    parser.add_argument('--enable_sample', action='store_true')
-    parser.add_argument('--upernet_width', type=int, default=256)
-    parser.add_argument("--cvit_channels", nargs='+', type=int, default= [0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
-    parser.add_argument("--bands", nargs='+', type=str, default= ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B11', 'B12'])
+    parser.add_argument("--device", type=str, default="cuda:0")
+    parser.add_argument("--grad_accum", type=int, default=1)
+    parser.add_argument("--load_from_checkpoint", action="store_true")
+    parser.add_argument("--checkpoint_path", type=str, default="")
+    parser.add_argument("--min_lr", type=float, default=0.0)
+    parser.add_argument(
+        "--dist_url",
+        default="env://",
+        type=str,
+        help="""url used to set up
+        distributed training; see https://pytorch.org/docs/stable/distributed.html""",
+    )
+    parser.add_argument("--freeze_encoder", action="store_true")
+    parser.add_argument("--load_decoder", action="store_true")
+    parser.add_argument("--fill_zeros", action="store_true")
+    parser.add_argument("--band_repeat_count", type=int, default=0)
+    parser.add_argument("--in_channels", type=int, default=3)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--upsampling", type=float, default=4)
+    parser.add_argument("--num_workers", type=int, default=16)
+    parser.add_argument("--img_size", type=int, default=96)
+    parser.add_argument("--loss_type", type=str, default="bce")
+    parser.add_argument("--lr_sched", type=str, default="")
+    parser.add_argument("--warmup_steps", type=int, default=20)
+    parser.add_argument("--warmup_lr", type=float, default=1e-6)
+    parser.add_argument("--decoder", type=str, default="upernet")
+    parser.add_argument("--enable_sample", action="store_true")
+    parser.add_argument("--upernet_width", type=int, default=256)
+    parser.add_argument("--cvit_channels", nargs="+", type=int, default=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    parser.add_argument(
+        "--bands", nargs="+", type=str, default=["B2", "B3", "B4", "B5", "B6", "B7", "B8", "B8A", "B11", "B12"]
+    )
     parser.add_argument("--classes", type=int, default=2)
-    parser.add_argument('--enable_multiband_input', action='store_true')
-    parser.add_argument('--multiband_channel_count', type=int, default=3)
-    parser.add_argument('--channel_dropout_rate', type=float, default=0.0)
-    parser.add_argument('--min_drop_channels', type=int, default=1)
+    parser.add_argument("--enable_multiband_input", action="store_true")
+    parser.add_argument("--multiband_channel_count", type=int, default=3)
+    parser.add_argument("--channel_dropout_rate", type=float, default=0.0)
+    parser.add_argument("--min_drop_channels", type=int, default=1)
+    parser.add_argument("--color_blind", action="store_true")
 
     args = parser.parse_args()
     seed_torch(seed=args.seed)
