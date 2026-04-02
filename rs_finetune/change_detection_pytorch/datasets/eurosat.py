@@ -7,6 +7,7 @@ import glob
 import json
 
 from cvtorchvision import cvtransforms
+from storage_paths import datasets_path
 
 BAND_STATS = {
     'mean': {
@@ -82,7 +83,7 @@ SAR_CHANNEL_INDEX = {band: idx for idx, band in enumerate(SAR_CHANNELS)}
 class EuroSATCombinedDataset(Dataset):
     def __init__(self, ms_dir, sar_dir, 
                  bands, split_path, img_size=64, 
-                 metadata_path='nfs/ap/mnt/frtn/rs-multiband/EuroSat_metadata',
+                 metadata_path=None,
                  split='train', transform=None):
         """
         ms_dir: Base directory for multispectral TIFFs.
@@ -91,6 +92,8 @@ class EuroSATCombinedDataset(Dataset):
         split_file: Path to the split file (e.g., "train.txt", "val.txt", or "test.txt").
         transform: Optional transform to apply.
         """
+        if metadata_path is None:
+            metadata_path = datasets_path("x-eurosat", "EuroSat_metadata")
         self.ms_dir = ms_dir
         self.sar_dir = sar_dir
         self.bands = [b.strip().upper() for b in bands]  # Normalize band names

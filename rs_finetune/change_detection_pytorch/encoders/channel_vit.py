@@ -23,14 +23,15 @@ from .vision_transformer import trunc_normal_
 from copy import deepcopy
 from .vision_transformer import MultiLevelNeck
 from pretrainedmodels.models.torchvision_models import pretrained_settings
+from storage_paths import base_models_path as _bm
 
 new_settings = {
     "ibot-B": {
-        "million_aid": "/nfs/go/mnt/bolbol/alla/checkpoints/ibot_checkpoints/vitb_16/checkpoint0080.pth",
-        "fmow": "/nfs/go/mnt/bolbol/alla/checkpoints/ibot_checkpoints/vitb_16/checkpoint_fmow.pth",
-        "million_aid_fa": "/nfs/ap/mnt/frtn/rs-results/maid_ibot_base_fa2_ddp/checkpoint.pth",
-        "million_aid_fa_scale": "/nfs/ap/mnt/frtn/rs-results/maid_ibot_base_fa2_augm_resume6/checkpoint.pth", 
-        "imagenet": "/nfs/ap/mnt/frtn/rs-base-models/ibot_imagenet/checkpoint_teacher.pth"
+        "million_aid": _bm("ibot_checkpoints", "vitb_16", "checkpoint0080.pth"),
+        "fmow": _bm("ibot_checkpoints", "vitb_16", "checkpoint_fmow.pth"),
+        "million_aid_fa": _bm("rs-results", "maid_ibot_base_fa2_ddp", "checkpoint.pth"),
+        "million_aid_fa_scale": _bm("rs-results", "maid_ibot_base_fa2_augm_resume6", "checkpoint.pth"),
+        "imagenet": _bm("ibot_imagenet", "checkpoint_teacher.pth"),
     },
     "Cvit-B": {
         "so2sat": "so2sat_channelvit_small_p8_with_hcs_random_split_supervised",

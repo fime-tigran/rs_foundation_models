@@ -24,10 +24,11 @@ from .vision_transformer import trunc_normal_
 from copy import deepcopy
 from .vision_transformer import MultiLevelNeck
 from pretrainedmodels.models.torchvision_models import pretrained_settings
+from storage_paths import base_models_path as _bm
 
 new_settings = {
     "Cvit-B": {
-        "chi_vit": "/nfs/dgx/raid/rs/rs/channel_logs/May_2025/May02_12-55-28/checkpoint.pth",
+        "chi_vit": _bm("chivit", "checkpoint.pth"),
     }
 }
 

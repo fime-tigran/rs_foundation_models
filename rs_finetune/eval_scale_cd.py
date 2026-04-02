@@ -14,6 +14,7 @@ from change_detection_pytorch.utils import functional as F
 from change_detection_pytorch.datasets import LEVIR_CD_Dataset, ChangeDetectionDataModule
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
+from storage_paths import resolve_dataset_config_dict
 
 
 def init_dist(master_port):
@@ -123,8 +124,7 @@ def main(args):
                    fusion=cfg['fusion'], load_decoder=cfg['load_decoder'], upsampling=args.upsampling)
     
     with open(args.dataset_config) as config:
-        data_cfg = json.load(config)
-    
+        data_cfg = resolve_dataset_config_dict(json.load(config))
 
     dataset_name = data_cfg['dataset_name']
     dataset_path = data_cfg['dataset_path']

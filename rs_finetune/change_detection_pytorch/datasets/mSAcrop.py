@@ -12,6 +12,7 @@ from torchvision.transforms import (Compose, Resize, RandomHorizontalFlip,
                                     RandomApply, RandomChoice, RandomRotation)
 from torchvision.transforms import functional as F
 from torchvision.transforms import InterpolationMode
+from storage_paths import datasets_path
 
 
 STATS = {
@@ -83,8 +84,10 @@ class mSAcrop(Dataset):
                 img_size=256,
                 # transform=None,
                 fill_zeros=False,
-                h5_dir="/nfs/h100/raid/rs/geobench/sa_crop_type/", 
+                h5_dir=None, 
                 ):
+        if h5_dir is None:
+            h5_dir = datasets_path("x-SA-crop-type")
 
         self.h5_dir = h5_dir
         self.img_size = img_size

@@ -505,7 +505,8 @@ def load_encoder(
                     encoder.backbone.backbone.patch_embed.proj = adapt_rgb_conv_layer_to_multiband(
                         old_conv=old_conv, new_in_channels=multiband_channel_count
                     )
-            # path = '/nfs/ap/mnt/frtn/rs-results/dinov2_sat/SSLhuge_satellite.pth'
+            # from storage_paths import base_models_path
+            # path = base_models_path("rs-results", "dinov2_sat", "SSLhuge_satellite.pth")
             # encoder = SSLAE(pretrained=path, huge=True, classification=True).eval()
         elif "v3" in encoder_name.lower():
             print("=" * 100)

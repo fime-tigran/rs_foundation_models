@@ -11,6 +11,7 @@ import torchvision.transforms.functional as F
 # random.seed(42)  
 from tqdm import tqdm
 import numpy as np
+from storage_paths import datasets_path
 
 
 STATS = {
@@ -74,14 +75,20 @@ class Sen1Floods11(Dataset):
     def __init__(self,
                  bands,
                  img_size=224,
-                 metadata_path ='/nfs/ap/mnt/frtn/rs-multiband/sen1floods11_metadata',
-                 root_path = '/nfs/ap/mnt/frtn/rs-multiband/sen1floods11/sen1floods11',
-                 split_file_path = '/nfs/ap/mnt/frtn/rs-multiband/sen1floods11_splits_with_s2',
+                 metadata_path=None,
+                 root_path=None,
+                 split_file_path=None,
                  split = 'train',
                  limited_label=1.0,
                  limited_label_strategy='stratified',
                  fill_zeros=False,
                 ):
+        if metadata_path is None:
+            metadata_path = datasets_path("x-sen1floods11", "v1.1", "catalog")
+        if root_path is None:
+            root_path = datasets_path("x-sen1floods11")
+        if split_file_path is None:
+            split_file_path = datasets_path("x-sen1floods11", "v1.1", "splits", "flood_handlabeled")
         
         self.classes = ['Not Water', 'Water']
         self.ignore_index = -1
@@ -95,15 +102,8 @@ class Sen1Floods11(Dataset):
         self.num_classes = 2
         self.fill_zeros = fill_zeros
 
-        self.split_mapping = {"train": "train", 
-                              "val": "valid", 
-                              "test": "test"}
-        
-        split_file = os.path.join(
-            self.split_file_path,
-            f"flood_{self.split_mapping[split]}_data_with_S2.csv",
-        )
-
+        split_csv_names = {"train": "flood_train_data.csv", "val": "flood_valid_data.csv", "test": "flood_test_data.csv"}
+        split_file = os.path.join(self.split_file_path, split_csv_names[split])
 
         data_root = os.path.join(
             root_path, "v1.1", "data/flood_events/HandLabeled/"
@@ -112,19 +112,19 @@ class Sen1Floods11(Dataset):
         with open(split_file) as f:
             file_list = f.readlines()
 
-        file_list = [f.rstrip().split(",") for f in file_list]
+        rows = [ln.rstrip().split(",") for ln in file_list if ln.strip()]
 
-        
-        self.s1_image_list = [
-            os.path.join(data_root, "S1Hand", f[0]) for f in file_list
-        ]
-        self.s2_image_list = [
-            os.path.join(data_root, "S2Hand", f[0].replace("S1Hand", "S2Hand"))
-            for f in file_list
-        ]
-        self.target_list = [
-            os.path.join(data_root, "LabelHand", f[2]) for f in file_list
-        ]
+        self.s1_image_list = []
+        self.s2_image_list = []
+        self.target_list = []
+        for parts in rows:
+            s1_name = parts[0].strip()
+            label_name = parts[2].strip() if len(parts) >= 3 else parts[1].strip()
+            self.s1_image_list.append(os.path.join(data_root, "S1Hand", s1_name))
+            self.s2_image_list.append(
+                os.path.join(data_root, "S2Hand", s1_name.replace("S1Hand", "S2Hand"))
+            )
+            self.target_list.append(os.path.join(data_root, "LabelHand", label_name))
 
 
         self.indices = list(range(len(self.s1_image_list)))
@@ -219,7 +219,11 @@ class Sen1Floods11(Dataset):
                 target = F.vflip(target)
 
         filename = self.s1_image_list[index].strip().rsplit('/', 1)[-1].rsplit('.', 1)[0]
-        with open(f"{self.metadata_path}/{filename}.json", 'r') as file:
+        base_id = filename.replace("_S1Hand", "")
+        meta_json = os.path.join(
+            self.metadata_path, "sen1floods11_hand_labeled_source", base_id, f"{base_id}.json"
+        )
+        with open(meta_json, 'r') as file:
             metadata = json.load(file)
         metadata.update({'waves': [WAVES[b] for b in self.bands if b in self.bands]})
     

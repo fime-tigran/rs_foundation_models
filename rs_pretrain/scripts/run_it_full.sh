@@ -1,4 +1,5 @@
 #!/bin/bash
+: "${RS_FOUNDATION_RESULTS_ROOT:=/mnt/weka/tgrigoryan/rs_foundation}"
 
 #SBATCH --job-name=cvit_it        
 #SBATCH --partition=h100               
@@ -19,7 +20,7 @@ python -m torch.distributed.run --nproc_per_node 8 --rdzv-endpoint=localhost:295
         --warmup_teacher_temp_sample_iters 9e6 --weight_decay 0.04 --lambda2 1 --lambda3 1 \
         --saving_freq 2e6 --saving_sample_iters 9e6 18e6 27e6 36e6 45e6 90e6 135e6 180e6 225e6 270e6 315e6 360e6 450e6 \
         --compile_decoder false --compile_loss true --decoder_compile_mode default --use_overlap false --only_decay false \
-        --output_dir /nfs/dgx/raid/rs/rs/channel_logs --sampling_subset true \
+        --output_dir "${RS_FOUNDATION_RESULTS_ROOT}/channel_logs" --sampling_subset true \
         --add_ch_embed true --shared_proj true --sync_channels false \
         # --load_from  \
         #--saveckp_freq 10

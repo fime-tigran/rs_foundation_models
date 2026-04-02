@@ -1,7 +1,7 @@
 {
     "root": "",
-    "base_dir": "/nfs/h100/raid/rs/BigEarthNet/",
-    "splits_dir": "/nfs/h100/raid/rs/bigearthnet-medium/splits/",
+    "base_dir": "x-bigearthnet/",
+    "splits_dir": "x-bigearthnet/",
     "dataset_name": "ben",
     "num_classes": 19, 
     "image_size": 224,

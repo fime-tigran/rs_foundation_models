@@ -223,10 +223,12 @@ Frozen backbones (`model'`) generally underperform full fine-tuning in superset.
 
 ## Checkpoints and Paths
 
-Checkpoints are saved to NFS paths:
-- Classification: `/nfs/ap/mnt/frtn/ckpt_rs_finetune/classification/{experiment_name}/`
-- Segmentation: `/nfs/ap/mnt/frtn/rs-multiband/ckpt_rs_finetune/segmentation/{experiment_name}/`
-- Change Detection: `/nfs/ap/mnt/frtn/rs-multiband/ckpt_rs_finetune/change_detection/{experiment_name}/`
+Canonical roots live in `rs_finetune/storage_paths.py` (`DATASETS_ROOT`, `BASE_MODELS_ROOT`, `RESULTS_ROOT`). Override with env: `GEOCROSSBENCH_DATASETS_ROOT`, `GEOCROSSBENCH_BASE_MODELS_ROOT`, `RS_FOUNDATION_RESULTS_ROOT`. Dataset JSON configs use paths relative to `DATASETS_ROOT`; loaders call `resolve_dataset_config_dict()` after `json.load`.
+
+Checkpoints are saved under Weka:
+- Classification: `/mnt/weka/tgrigoryan/rs_foundation/finetune_ckpts/classification/{experiment_name}/`
+- Segmentation: `/mnt/weka/tgrigoryan/rs_foundation/finetune_ckpts/segmentation/{experiment_name}/`
+- Change Detection: `/mnt/weka/tgrigoryan/rs_foundation/finetune_ckpts/change_detection/{experiment_name}/`
 
 ---
 

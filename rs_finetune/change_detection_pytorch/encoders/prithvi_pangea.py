@@ -13,11 +13,12 @@ from .pos_embed_pangea import get_3d_sincos_pos_embed
 
 from pretrainedmodels.models.torchvision_models import pretrained_settings
 from copy import deepcopy
+from storage_paths import base_models_path as _bm
 
 
 new_settings = {
     "Prithvi_100M": {
-        "HLS-2": "/nfs/ap/mnt/frtn/rs-base-models/prithvi_weights/Prithvi_100M.pt",  
+        "HLS-2": _bm("prithvi_weights", "Prithvi_100M.pt"),
     },
 }
 

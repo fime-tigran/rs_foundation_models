@@ -8,6 +8,7 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import (Compose, Resize, RandomHorizontalFlip, 
                                     RandomApply, RandomChoice, RandomRotation)
+from storage_paths import datasets_path
 
 STATS = {
     'mean': {
@@ -78,8 +79,10 @@ class mBigearthnet(Dataset):
                 bands,
                 img_size=120,
                 # transform=None,
-                h5_dir="/nfs/ap/mnt/frtn/rs-multiband/ben/classification_v1.0.0/m-bigearthnet/", 
+                h5_dir=None, 
                 ):
+        if h5_dir is None:
+            h5_dir = datasets_path("x-bigearthnet")
 
         self.h5_dir = h5_dir
         self.img_size = img_size

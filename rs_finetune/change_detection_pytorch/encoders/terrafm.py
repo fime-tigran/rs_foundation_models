@@ -6,11 +6,12 @@ from torch import Tensor
 from functools import partial
 from copy import deepcopy
 from pretrainedmodels.models.torchvision_models import pretrained_settings
+from storage_paths import base_models_path as _bm
 
 
 new_settings = {
     "TerraFM": {
-        "terrafm_base": '/nfs/ap/mnt/frtn/TerraFM-B.pth',
+        "terrafm_base": _bm("TerraFM-B.pth"),
     },
 }
 

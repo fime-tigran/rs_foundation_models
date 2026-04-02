@@ -14,6 +14,7 @@ from vit_pytorch.simple_vit import FeedForward, Attention
 from einops import rearrange, reduce, repeat
 from .vision_transformer import MultiLevelNeck
 from pretrainedmodels.models.torchvision_models import pretrained_settings
+from storage_paths import base_models_path as _bm
 
 
 torch.set_float32_matmul_precision("medium")
@@ -22,7 +23,7 @@ os.environ["TORCH_CUDNN_V8_API_DISABLED"] = "1"
 
 new_settings = {
     "Clay": {
-        "clay_v1": "/nfs/h100/raid/rs/Clay/Clay_v0_v1/clay-v1-base.ckpt",  
+        "clay_v1": _bm("Clay", "Clay_v0_v1", "clay-v1-base.ckpt"),
     },
 }
 
@@ -610,7 +611,7 @@ clay_encoders = {
         "encoder": ClayEncoder,
         "pretrained_settings": pretrained_settings['Clay'],
         "params": {
-            "ckpt_path": '/nfs/h100/raid/rs/Clay/Clay_v0_v1/clay-v1-base.ckpt',
+            "ckpt_path": _bm("Clay", "Clay_v0_v1", "clay-v1-base.ckpt"),
             "depth": 12,
             "embed_dim": 768,
             "num_heads": 12,

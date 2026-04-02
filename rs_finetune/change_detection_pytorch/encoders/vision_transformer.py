@@ -19,6 +19,7 @@ import torch.nn.functional as F
 from functools import partial
 
 from pretrainedmodels.models.torchvision_models import pretrained_settings
+from storage_paths import base_models_path as _bm
 
 # Copyright (c) OpenMMLab. All rights reserved.
 import torch.nn as nn
@@ -704,37 +705,37 @@ def trunc_normal_(tensor, mean=0., std=1., a=-2., b=2.):
 
 new_settings = {
     "ibot-B": {
-        "million_aid": "/nfs/ap/mnt/frtn/rs-results/maid_ibot_base_fa2_ddp/checkpoint.pth",
-        "million_aid_scale": "/nfs/ap/mnt/frtn/rs-results/maid_ibot_base_fa2_augm_resume6/checkpoint.pth", 
-        "imagenet": "/nfs/ap/mnt/frtn/rs-base-models/ibot_imagenet/checkpoint_teacher.pth",
-        "million_aid_filtered_0.8": "/nfs/ap/mnt/frtn/rs-results/data_curation/maid_ibotB_100m_50K_filtered_0_8_resume/checkpoint.pth",
-        "million_aid_filtered_0.85": "/nfs/ap/mnt/frtn/rs-results/data_curation/maid_ibotB_100m_50K_filtered_0_85_resume/checkpoint.pth",
-        "million_aid_filtered_0.9": "/nfs/ap/mnt/frtn/rs-results/data_curation/maid_ibotB_100m_50K_filtered_0_9_resume/checkpoint.pth",
-        "million_aid_full": "/nfs/ap/mnt/frtn/rs-results/data_curation/maid_ibotB_100m_50K_full/checkpoint.pth",
+        "million_aid": _bm("rs-results", "maid_ibot_base_fa2_ddp", "checkpoint.pth"),
+        "million_aid_scale": _bm("rs-results", "maid_ibot_base_fa2_augm_resume6", "checkpoint.pth"),
+        "imagenet": _bm("ibot_imagenet", "checkpoint_teacher.pth"),
+        "million_aid_filtered_0.8": _bm("rs-results", "data_curation", "maid_ibotB_100m_50K_filtered_0_8_resume", "checkpoint.pth"),
+        "million_aid_filtered_0.85": _bm("rs-results", "data_curation", "maid_ibotB_100m_50K_filtered_0_85_resume", "checkpoint.pth"),
+        "million_aid_filtered_0.9": _bm("rs-results", "data_curation", "maid_ibotB_100m_50K_filtered_0_9_resume", "checkpoint.pth"),
+        "million_aid_full": _bm("rs-results", "data_curation", "maid_ibotB_100m_50K_full", "checkpoint.pth"),
 
-        "million_aid_full_200M":"/nfs/ap/mnt/frtn/rs-results/data_curation/maid_ibotB_200m_50K_full/checkpoint.pth",
-        "million_aid_filtered_0.8_200M":"/nfs/ap/mnt/frtn/rs-results/data_curation/maid_ibotB_200m_50K_filtered_0_8/checkpoint.pth",
-        "million_aid_filtered_0.85_200M":"/nfs/ap/mnt/frtn/rs-results/data_curation/maid_ibotB_200m_50K_filtered_0_85/checkpoint.pth",
-        "million_aid_filtered_0.9_200M":"/nfs/ap/mnt/frtn/rs-results/data_curation/maid_ibotB_200m_50K_filtered_0_9/checkpoint.pth",
-        "million_aid_full_200M_50ep":"/nfs/ap/mnt/frtn/rs-results/data_curation/maid_ibotB_200m_50K_full/checkpoint0050.pth",
+        "million_aid_full_200M": _bm("rs-results", "data_curation", "maid_ibotB_200m_50K_full", "checkpoint.pth"),
+        "million_aid_filtered_0.8_200M": _bm("rs-results", "data_curation", "maid_ibotB_200m_50K_filtered_0_8", "checkpoint.pth"),
+        "million_aid_filtered_0.85_200M": _bm("rs-results", "data_curation", "maid_ibotB_200m_50K_filtered_0_85", "checkpoint.pth"),
+        "million_aid_filtered_0.9_200M": _bm("rs-results", "data_curation", "maid_ibotB_200m_50K_filtered_0_9", "checkpoint.pth"),
+        "million_aid_full_200M_50ep": _bm("rs-results", "data_curation", "maid_ibotB_200m_50K_full", "checkpoint0050.pth"),
 
 
-        "million_aid_full_300M":"/nfs/ap/mnt/frtn/rs-results/data_curation/maid_ibotB_300m_50K_full/checkpoint.pth",
-        "million_aid_filtered_0.8_300M":"/nfs/ap/mnt/frtn/rs-results/data_curation/maid_ibotB_300m_50K_filtered_0_8/checkpoint.pth",
-        "million_aid_filtered_0.85_300M":"/nfs/ap/mnt/frtn/rs-results/data_curation/maid_ibotB_300m_50K_filtered_0_85/checkpoint.pth",
-        "million_aid_filtered_0.9_300M":"/nfs/ap/mnt/frtn/rs-results/data_curation/maid_ibotB_300m_50K_filtered_0_9/checkpoint.pth",
+        "million_aid_full_300M": _bm("rs-results", "data_curation", "maid_ibotB_300m_50K_full", "checkpoint.pth"),
+        "million_aid_filtered_0.8_300M": _bm("rs-results", "data_curation", "maid_ibotB_300m_50K_filtered_0_8", "checkpoint.pth"),
+        "million_aid_filtered_0.85_300M": _bm("rs-results", "data_curation", "maid_ibotB_300m_50K_filtered_0_85", "checkpoint.pth"),
+        "million_aid_filtered_0.9_300M": _bm("rs-results", "data_curation", "maid_ibotB_300m_50K_filtered_0_9", "checkpoint.pth"),
 
-        "million_aid_full_50M": "/nfs/ap/mnt/frtn/rs-results/data_curation/maid_ibotB_50m_50K_full/checkpoint.pth",
-        "million_aid_filtered_0.8_50M": "/nfs/ap/mnt/frtn/rs-results/data_curation/maid_ibotB_50m_50K_filtered_0_8/checkpoint.pth",
-        "million_aid_filtered_0.9_50M": "/nfs/ap/mnt/frtn/rs-results/data_curation/maid_ibotB_50m_50K_filtered_0_9_resume/checkpoint.pth",
+        "million_aid_full_50M": _bm("rs-results", "data_curation", "maid_ibotB_50m_50K_full", "checkpoint.pth"),
+        "million_aid_filtered_0.8_50M": _bm("rs-results", "data_curation", "maid_ibotB_50m_50K_filtered_0_8", "checkpoint.pth"),
+        "million_aid_filtered_0.9_50M": _bm("rs-results", "data_curation", "maid_ibotB_50m_50K_filtered_0_9_resume", "checkpoint.pth"),
 
-        "inet_maid_50M": "/nfs/ap/mnt/frtn/rs-results/data_curation/inet_ibotB_50m_50K_full/checkpoint.pth",
-        "inet_maid_0.8_50M":"/nfs/ap/mnt/frtn/rs-results/data_curation/inet_ibotB_50m_50K_filtered_0_8_resume/checkpoint.pth"
+        "inet_maid_50M": _bm("rs-results", "data_curation", "inet_ibotB_50m_50K_full", "checkpoint.pth"),
+        "inet_maid_0.8_50M": _bm("rs-results", "data_curation", "inet_ibotB_50m_50K_filtered_0_8_resume", "checkpoint.pth"),
 
     },
     "vit-s8": {
-        "dino-mc": "/nfs/ap/mnt/frtn/dino_mc/vit_mc_checkpoint300.pth"
-    }
+        "dino-mc": _bm("dino_mc", "vit_mc_checkpoint300.pth"),
+    },
 }
 
 pretrained_settings = deepcopy(pretrained_settings)

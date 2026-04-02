@@ -1,7 +1,7 @@
 {
     "dataset_name": "harvey",
-    "dataset_path": "/nfs/h100/raid/rs/harvey/harvey",
-    "metadata_dir": "/nfs/h100/raid/rs/metadata_harvey",
+    "dataset_path": "x-harvey",
+    "metadata_dir": "x-harvey/metadata",
     "tile_size": 96,
     "batch_size": 8
 }

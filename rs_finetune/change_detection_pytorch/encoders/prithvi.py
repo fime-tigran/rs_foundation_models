@@ -20,11 +20,12 @@ from timm.models.layers import to_2tuple
 from copy import deepcopy
 from pretrainedmodels.models.torchvision_models import pretrained_settings
 from .vision_transformer import MultiLevelNeck
+from storage_paths import base_models_path as _bm
 
 
 new_settings = {
     "Prithvi_100M": {
-        "HLS-2": "/nfs/ap/mnt/frtn/rs-base-models/prithvi_weights/Prithvi_100M.pt",  
+        "HLS-2": _bm("prithvi_weights", "Prithvi_100M.pt"),
     },
 }
 

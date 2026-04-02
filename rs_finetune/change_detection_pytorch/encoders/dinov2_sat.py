@@ -16,6 +16,7 @@ from typing import Callable, Optional, Tuple, Union
 from functools import partial
 from collections import OrderedDict
 from .vision_transformer import MultiLevelNeck
+from storage_paths import base_models_path as _bm
 
 class MaskingGenerator:
     def __init__(
@@ -1055,7 +1056,7 @@ dinov2_encoders = {
         "params": {
             "huge": True,
             "classification": False,
-            "pretrained": '/nfs/ap/mnt/frtn/rs-results/dinov2_sat/SSLhuge_satellite.pth',
+            "pretrained": _bm("rs-results", "dinov2_sat", "SSLhuge_satellite.pth"),
             "out_indices": (7, 15, 23, 31),
             'depth': 32
         }

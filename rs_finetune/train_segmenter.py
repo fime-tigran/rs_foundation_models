@@ -9,14 +9,15 @@ from torch.utils.data import DataLoader
 import change_detection_pytorch as cdp
 from change_detection_pytorch.datasets import BuildingDataset, Sen1Floods11, mCashewPlantation, mSAcrop
 from evaluator import SegEvaluator
+from storage_paths import RESULTS_ROOT, results_path
 from utils import create_collate_fn, seed_torch
 
 torch.backends.cudnn.benchmark = False
 torch.set_float32_matmul_precision("medium")
 
-WRITE_ROOT = "/nfs/h100/raid/rs/tigran_masters"
-CHECKPOINT_ROOT = f"{WRITE_ROOT}/finetune_ckpts"
-SEGMENTATION_AIM_ROOT = f"{WRITE_ROOT}/aim_logs/segmentation"
+WRITE_ROOT = RESULTS_ROOT
+CHECKPOINT_ROOT = results_path("finetune_ckpts")
+SEGMENTATION_AIM_ROOT = results_path("aim_logs", "segmentation")
 
 
 def main(args):

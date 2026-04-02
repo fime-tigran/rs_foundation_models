@@ -4,6 +4,7 @@ import torch
 from copy import deepcopy
 from collections import OrderedDict
 from pretrainedmodels.models.torchvision_models import pretrained_settings
+from storage_paths import base_models_path as _bm
 
 from ._base import EncoderMixin
 from .swin_transformer_model import SwinTransformer
@@ -115,11 +116,11 @@ new_settings = {
         "imagenet": "https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_base_patch4_window7_224.pth",
         "imagenet-22k": "https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_base_patch4_window7_224_22k.pth",
         "ADE20k": "https://github.com/SwinTransformer/storage/releases/download/v1.0.1/upernet_swin_base_patch4_window7_512x512.pth",
-        "geopile": "/nfs/ap/mnt/frtn/gfm_model/gfm.pth",
-        "satlas": "/nfs/ap/mnt/frtn/rs-base-models/satlas_model/sentinel2_swinb_si_rgb.pth",
-        "satlas_ms": "/nfs/ap/mnt/frtn/rs-base-models/satlas_model/sentinel2_swinb_si_ms.pth",
-        "satlas_hr": "/nfs/ap/mnt/frtn/rs-base-models/satlas_model/aerial_swinb_si.pth",
-        "cmid": "/nfs/ap/mnt/frtn/cmid_model/CMID_Swin-B_bk_200ep"
+        "geopile": _bm("gfm_model", "gfm.pth"),
+        "satlas": _bm("satlas_model", "sentinel2_swinb_si_rgb.pth"),
+        "satlas_ms": _bm("satlas_model", "sentinel2_swinb_si_ms.pth"),
+        "satlas_hr": _bm("satlas_model", "aerial_swinb_si.pth"),
+        "cmid": _bm("cmid_model", "CMID_Swin-B_bk_200ep"),
     },
     "Swin-L": {
         "imagenet-22k": "https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_large_patch4_window7_224_22k.pth"

@@ -9,13 +9,14 @@ from torch.utils.data import DataLoader
 import change_detection_pytorch as cdp
 from change_detection_pytorch.datasets import ChangeDetectionDataModule, FloodDataset, LEVIR_CD_Dataset
 from evaluator_change import SegEvaluator
+from storage_paths import datasets_path, RESULTS_ROOT, results_path
 from utils import create_collate_fn, get_band_orders, seed_torch
 
 torch.set_float32_matmul_precision("medium")
 
-WRITE_ROOT = "/nfs/h100/raid/rs/tigran_masters"
-CHECKPOINT_ROOT = f"{WRITE_ROOT}/finetune_ckpts"
-CHANGE_AIM_ROOT = f"{WRITE_ROOT}/aim_logs/change_detection"
+WRITE_ROOT = RESULTS_ROOT
+CHECKPOINT_ROOT = results_path("finetune_ckpts")
+CHANGE_AIM_ROOT = results_path("aim_logs", "change_detection")
 
 
 def main(args):
@@ -116,7 +117,7 @@ def main(args):
         rgb_bands = [rgb_mapping[b] for b in rgb_bands]
         train_dataset = FloodDataset(
             # split_list=f"{args.dataset_path}/train.txt",
-            split_list="/nfs/h100/raid/rs/harvey_new_train.txt",
+            split_list=datasets_path("x-harvey", "train.txt"),
             bands=args.bands,
             img_size=args.img_size,
             rgb_bands=rgb_bands,
@@ -125,7 +126,7 @@ def main(args):
 
         valid_dataset = FloodDataset(
             # split_list=f"{args.dataset_path}/val.txt",
-            split_list="/nfs/h100/raid/rs/harvey_new_val.txt",
+            split_list=datasets_path("x-harvey", "val.txt"),
             img_size=args.img_size,
             rgb_bands=rgb_bands,
             bands=args.bands,

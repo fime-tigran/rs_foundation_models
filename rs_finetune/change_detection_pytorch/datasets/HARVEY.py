@@ -6,6 +6,7 @@ import rasterio
 import numpy as np
 import torchvision.transforms as T
 from torch.utils.data import Dataset
+from storage_paths import datasets_path
 
 
 STATS = {
@@ -126,7 +127,7 @@ class FloodDataset(Dataset):
     def __init__(self, split_list, 
                  bands=None, 
                  img_size = 96, 
-                 metadata_path='/nfs/h100/raid/rs/metadata_harvey',
+                 metadata_path=None,
                  transform=None,
                  rgb_bands = ['B2', 'B3', 'B4'],
                  fill_zeros=False,
@@ -138,6 +139,8 @@ class FloodDataset(Dataset):
             bands (list): List of band names (e.g., ['B1', 'B2', 'B3']).
             transform (callable, optional): Transform to apply to the data.
         """
+        if metadata_path is None:
+            metadata_path = datasets_path("x-harvey", "metadata")
         with open(split_list, 'r') as f:
             self.folders = [line.strip() for line in f.readlines()]
         self.bands = bands

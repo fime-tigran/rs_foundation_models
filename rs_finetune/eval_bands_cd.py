@@ -19,6 +19,7 @@ import change_detection_pytorch as cdp
 from change_detection_pytorch.datasets import ChangeDetectionDataModule, FloodDataset, normalize_channel
 from eval_scale_cd import init_dist, load_model
 from evaluator_change import SegEvaluator
+from storage_paths import datasets_path, resolve_dataset_config_dict
 from utils import create_collate_fn, get_band_orders
 
 RGB_BANDS = ["B02", "B03", "B04"]
@@ -97,7 +98,7 @@ def get_image_array(path, return_rgb=False):
 
 
 def eval_on_sar(args):
-    test_cities = "/nfs/ap/mnt/frtn/rs-multiband/OSCD/test.txt"
+    test_cities = datasets_path("x-oscd", "test.txt")
     with open(test_cities) as f:
         test_set = f.readline()
     test_set = test_set[:-1].split(",")
@@ -139,7 +140,7 @@ def eval_on_sar(args):
 
     samples = 0
     fscores = 0
-    for place in tqdm(glob("/nfs/ap/mnt/frtn/rs-multiband/oscd/multisensor_fusion_CD/S1/*")):
+    for place in tqdm(glob(datasets_path("x-oscd", "multisensor_fusion_CD", "S1", "*"))):
         city_name = place.split("/")[-1]
         if city_name in test_set:
             path1 = glob(f"{place}/imgs_1/transformed/*")[0]
@@ -148,7 +149,7 @@ def eval_on_sar(args):
             path2 = glob(f"{place}/imgs_2/transformed/*")[0]
             img2 = get_image_array(path2)
 
-            cm_path = os.path.join("/nfs/ap/mnt/frtn/rs-multiband/OSCD/", city_name, "cm/cm.png")
+            cm_path = os.path.join(datasets_path("x-oscd"), city_name, "cm/cm.png")
             cm = Image.open(cm_path).convert("L")
 
             # if args.metadata_path:
@@ -305,7 +306,7 @@ def eval_on_sar(args):
 
 
 def eval_on_s2_sar(args):
-    test_cities = "/nfs/ap/mnt/frtn/rs-multiband/OSCD/test.txt"
+    test_cities = datasets_path("x-oscd", "test.txt")
     with open(test_cities) as f:
         test_set = f.readline()
     test_set = test_set[:-1].split(",")
@@ -343,7 +344,7 @@ def eval_on_s2_sar(args):
 
     samples = 0
     fscores = 0
-    for place in tqdm(glob("/nfs/ap/mnt/frtn/rs-multiband/oscd/multisensor_fusion_CD/S1/*")):
+    for place in tqdm(glob(datasets_path("x-oscd", "multisensor_fusion_CD", "S1", "*"))):
         city_name = place.split("/")[-1]
         if city_name in test_set:
             # Load S2 data (RGB bands)
@@ -355,7 +356,7 @@ def eval_on_s2_sar(args):
             img2 = get_image_array(path2)  # VV, VH bands
 
             # Load change mask
-            cm_path = os.path.join("/nfs/ap/mnt/frtn/rs-multiband/OSCD/", city_name, "cm/cm.png")
+            cm_path = os.path.join(datasets_path("x-oscd"), city_name, "cm/cm.png")
             cm = Image.open(cm_path).convert("L")
 
             # Load metadata if available
@@ -437,7 +438,7 @@ def main(args):
         with open(args.model_config) as config:
             cfg = json.load(config)
         with open(args.dataset_config) as config:
-            data_cfg = json.load(config)
+            data_cfg = resolve_dataset_config_dict(json.load(config))
 
         training_bands = json.loads(args.training_bands) if args.training_bands else None
         new_bands = json.loads(args.new_bands) if args.new_bands else None
@@ -495,7 +496,7 @@ def main(args):
                         band[band.index(b)] = second_band
 
             if "oscd" in dataset_name.lower():
-                dataset_path = "/nfs/ap/mnt/frtn/rs-multiband/oscd/multisensor_fusion_CD/S1"
+                dataset_path = datasets_path("x-oscd", "multisensor_fusion_CD", "S1")
                 datamodule = ChangeDetectionDataModule(
                     dataset_path,
                     metadata_dir,
@@ -516,7 +517,7 @@ def main(args):
 
                 test_dataset = FloodDataset(
                     # split_list=f"{dataset_path}/test.txt",
-                    split_list="/nfs/h100/raid/rs/harvey_new_test.txt",
+                    split_list=datasets_path("x-harvey", "test.txt"),
                     bands=band,
                     rgb_bands=rgb_bands,
                     fill_zeros=args.fill_zeros,

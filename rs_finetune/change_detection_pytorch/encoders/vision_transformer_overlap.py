@@ -22,6 +22,7 @@ from copy import deepcopy
 from functools import partial
 from .vision_transformer import MultiLevelNeck, trunc_normal_
 from pretrainedmodels.models.torchvision_models import pretrained_settings
+from storage_paths import base_models_path as _bm
 
 # from timm.models.registry import register_model
 # from mmengine.model.weight_init import xavier_init
@@ -36,7 +37,7 @@ from pretrainedmodels.models.torchvision_models import pretrained_settings
 
 new_settings = {
     "overlap_ibot-B": {
-        "million_aid_overlap": "/nfs/dgx/raid/rs/rs/results/ap_compile_loss_log1/checkpoint.pth",
+        "million_aid_overlap": _bm("ibot_overlap", "checkpoint.pth"),
     },
 }
 

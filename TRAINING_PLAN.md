@@ -39,9 +39,9 @@ Segmentation/CD scripts use shorthand (`B2 B3 B4`, lowercase `vh vv`). Classific
 
 | Task | Directory |
 |---|---|
-| Classification | `/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/classification/<exp>/` |
-| Segmentation | `/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/segmentation/<exp>/` |
-| Change detection | `/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/change_detection/<exp>/` |
+| Classification | `/mnt/weka/tgrigoryan/rs_foundation/finetune_ckpts/classification/<exp>/` |
+| Segmentation | `/mnt/weka/tgrigoryan/rs_foundation/finetune_ckpts/segmentation/<exp>/` |
+| Change detection | `/mnt/weka/tgrigoryan/rs_foundation/finetune_ckpts/change_detection/<exp>/` |
 
 Classification saves `best-model.ckpt` (single-label) or `best-model-f1.ckpt` (m_ben).  
 Segmentation/CD saves `best_model.pth`.
@@ -341,7 +341,7 @@ python train_classifier.py \
 
 ```bash
 EXP=cvit_eurosat_rgb_E9_hcs_pool_embedfreeze_dropout_curriculum
-CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/classification/${EXP}/best-model.ckpt
+CKPT=/mnt/weka/tgrigoryan/rs_foundation/finetune_ckpts/classification/${EXP}/best-model.ckpt
 
 # mean-init for new B08 weight
 python eval_bands_cls.py \
@@ -374,7 +374,7 @@ Swap `EXP` and `--pooling_mode` per experiment. For E0–E5 use `cls`; for E12 u
 
 ```bash
 EXP=cvit_eurosat_s2_E9_hcs_pool_embedfreeze_dropout_curriculum
-CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/classification/${EXP}/best-model.ckpt
+CKPT=/mnt/weka/tgrigoryan/rs_foundation/finetune_ckpts/classification/${EXP}/best-model.ckpt
 
 python eval_bands_cls.py \
   --model_config configs/cvit-pretrained.json \
@@ -426,7 +426,7 @@ torchrun --nproc_per_node=2 train_segmenter.py \
   --backbone cvit-pretrained --encoder_weights chi_vit \
   --encoder_depth 12 --in_channels 3 \
   --dataset_name harvey \
-  --dataset_path /nfs/h100/raid/rs/harvey/harvey \
+  --dataset_path /mnt/weka/akhosrovyan/geocrossbench/datasets/x-harvey \
   --img_size 96 --classes 2 --loss_type ce \
   --batch_size 8 --max_epochs 100 \
   --lr 1e-4 --weight_decay 0.01 \
@@ -446,7 +446,7 @@ torchrun --nproc_per_node=2 train_segmenter.py \
   --backbone cvit-pretrained --encoder_weights chi_vit \
   --encoder_depth 12 --in_channels 10 \
   --dataset_name harvey \
-  --dataset_path /nfs/h100/raid/rs/harvey/harvey \
+  --dataset_path /mnt/weka/akhosrovyan/geocrossbench/datasets/x-harvey \
   --img_size 96 --classes 2 --loss_type ce \
   --batch_size 8 --max_epochs 100 \
   --lr 1e-4 --weight_decay 0.01 \
@@ -466,7 +466,7 @@ torchrun --nproc_per_node=2 train_segmenter.py \
 `eval_bands_seg.py` `channel_vit_order`: `['B4','B3','B2','B5','B6','B7','B8','B8A','B11','B12','vv','vh']`.
 
 ```bash
-CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/segmentation/cvit_harvey_seg_rgb_E9/best_model.pth
+CKPT=/mnt/weka/tgrigoryan/rs_foundation/finetune_ckpts/segmentation/cvit_harvey_seg_rgb_E9/best_model.pth
 
 python eval_bands_seg.py \
   --model_config configs/cvit-pretrained.json \
@@ -483,7 +483,7 @@ python eval_bands_seg.py \
 ### Eval — S2 → S2+S1
 
 ```bash
-CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/segmentation/cvit_harvey_seg_s2_E9/best_model.pth
+CKPT=/mnt/weka/tgrigoryan/rs_foundation/finetune_ckpts/segmentation/cvit_harvey_seg_s2_E9/best_model.pth
 
 python eval_bands_seg.py \
   --model_config configs/cvit-pretrained.json \
@@ -512,7 +512,7 @@ torchrun --nproc_per_node=2 train_change.py \
   --backbone cvit-pretrained --encoder_weights chi_vit \
   --encoder_depth 12 --in_channels 3 \
   --dataset_name harvey \
-  --dataset_path /nfs/h100/raid/rs/harvey/harvey \
+  --dataset_path /mnt/weka/akhosrovyan/geocrossbench/datasets/x-harvey \
   --img_size 256 --fusion diff \
   --batch_size 8 --max_epochs 100 \
   --lr 1e-4 --weight_decay 0.01 \
@@ -532,7 +532,7 @@ torchrun --nproc_per_node=2 train_change.py \
   --backbone cvit-pretrained --encoder_weights chi_vit \
   --encoder_depth 12 --in_channels 10 \
   --dataset_name harvey \
-  --dataset_path /nfs/h100/raid/rs/harvey/harvey \
+  --dataset_path /mnt/weka/akhosrovyan/geocrossbench/datasets/x-harvey \
   --img_size 256 --fusion diff \
   --batch_size 8 --max_epochs 100 \
   --lr 1e-4 --weight_decay 0.01 \
@@ -554,8 +554,8 @@ torchrun --nproc_per_node=2 train_change.py \
   --backbone cvit-pretrained --encoder_weights chi_vit \
   --encoder_depth 12 --in_channels 3 \
   --dataset_name OSCD \
-  --dataset_path /nfs/ap/mnt/frtn/OSCD/ \
-  --metadata_path /nfs/ap/mnt/frtn/OSCD_metadata/OSCD_metadata/ \
+  --dataset_path /mnt/weka/akhosrovyan/geocrossbench/datasets/x-oscd/ \
+  --metadata_path /mnt/weka/akhosrovyan/geocrossbench/datasets/x-oscd/ \
   --img_size 192 --fusion diff \
   --batch_size 8 --max_epochs 100 \
   --lr 1e-4 --weight_decay 0.01 \
@@ -572,7 +572,7 @@ torchrun --nproc_per_node=2 train_change.py \
 `eval_bands_cd.py` (non-SAR main) `channel_vit_order`: `['B02','B03','B04','B05','B06','B07','B08','B8A','B11','B12','VV','VH']` (uppercase, full names).
 
 ```bash
-CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/change_detection/cvit_harvey_cd_rgb_E9/best_model.pth
+CKPT=/mnt/weka/tgrigoryan/rs_foundation/finetune_ckpts/change_detection/cvit_harvey_cd_rgb_E9/best_model.pth
 
 python eval_bands_cd.py \
   --model_config configs/cvit-pretrained.json \
@@ -589,7 +589,7 @@ python eval_bands_cd.py \
 ### CD Eval — S2 → S2+S1 (Harvey)
 
 ```bash
-CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/change_detection/cvit_harvey_cd_s2_E9/best_model.pth
+CKPT=/mnt/weka/tgrigoryan/rs_foundation/finetune_ckpts/change_detection/cvit_harvey_cd_s2_E9/best_model.pth
 
 python eval_bands_cd.py \
   --model_config configs/cvit-pretrained.json \
@@ -607,7 +607,7 @@ python eval_bands_cd.py \
 ### OSCD Eval — S2 → S2+S1
 
 ```bash
-CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/change_detection/cvit_oscd_cd_rgb_E9/best_model.pth
+CKPT=/mnt/weka/tgrigoryan/rs_foundation/finetune_ckpts/change_detection/cvit_oscd_cd_rgb_E9/best_model.pth
 
 python eval_bands_cd.py \
   --model_config configs/cvit-pretrained.json \
@@ -714,7 +714,7 @@ python train_classifier.py \
 
 ```bash
 for EXP in ibot_eurosat_rgb_baseline ibot_eurosat_rgb_dropout; do
-  CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/classification/${EXP}/best-model.ckpt
+  CKPT=/mnt/weka/tgrigoryan/rs_foundation/finetune_ckpts/classification/${EXP}/best-model.ckpt
   python eval_bands_cls.py \
     --model_config configs/ibot-B.json \
     --dataset_config configs/m_eurosat.json \
@@ -731,7 +731,7 @@ done
 
 ```bash
 for EXP in ibot_eurosat_s2_baseline ibot_eurosat_s2_dropout; do
-  CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/classification/${EXP}/best-model.ckpt
+  CKPT=/mnt/weka/tgrigoryan/rs_foundation/finetune_ckpts/classification/${EXP}/best-model.ckpt
   python eval_bands_cls.py \
     --model_config configs/ibot-B.json \
     --dataset_config configs/m_eurosat.json \
@@ -752,7 +752,7 @@ done
 torchrun --nproc_per_node=2 train_segmenter.py \
   --backbone overlap_ibot-B --encoder_weights million_aid_overlap \
   --encoder_depth 12 --in_channels 3 \
-  --dataset_name harvey --dataset_path /nfs/h100/raid/rs/harvey/harvey \
+  --dataset_name harvey --dataset_path /mnt/weka/akhosrovyan/geocrossbench/datasets/x-harvey \
   --img_size 96 --classes 2 --loss_type ce \
   --batch_size 8 --max_epochs 100 --lr 1e-4 --weight_decay 0.01 \
   --lr_sched warmup_cosine --warmup_steps 20 --warmup_lr 1e-6 \
@@ -764,7 +764,7 @@ torchrun --nproc_per_node=2 train_segmenter.py \
 torchrun --nproc_per_node=2 train_segmenter.py \
   --backbone overlap_ibot-B --encoder_weights million_aid_overlap \
   --encoder_depth 12 --in_channels 10 \
-  --dataset_name harvey --dataset_path /nfs/h100/raid/rs/harvey/harvey \
+  --dataset_name harvey --dataset_path /mnt/weka/akhosrovyan/geocrossbench/datasets/x-harvey \
   --img_size 96 --classes 2 --loss_type ce \
   --batch_size 8 --max_epochs 100 --lr 1e-4 --weight_decay 0.01 \
   --lr_sched warmup_cosine --warmup_steps 20 --warmup_lr 1e-6 \
@@ -824,7 +824,7 @@ python train_classifier.py \
 
 ```bash
 for EXP in dinov2_eurosat_rgb_baseline dinov2_eurosat_rgb_dropout; do
-  CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/classification/${EXP}/best-model.ckpt
+  CKPT=/mnt/weka/tgrigoryan/rs_foundation/finetune_ckpts/classification/${EXP}/best-model.ckpt
   python eval_bands_cls.py \
     --model_config configs/dinov2.json \
     --dataset_config configs/m_eurosat.json \
@@ -840,7 +840,7 @@ done
 ### Eval — S2 → S2+S1
 
 ```bash
-CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/classification/dinov2_eurosat_s2_baseline/best-model.ckpt
+CKPT=/mnt/weka/tgrigoryan/rs_foundation/finetune_ckpts/classification/dinov2_eurosat_s2_baseline/best-model.ckpt
 python eval_bands_cls.py \
   --model_config configs/dinov2.json \
   --dataset_config configs/m_eurosat.json \
@@ -860,7 +860,7 @@ python eval_bands_cls.py \
 torchrun --nproc_per_node=2 train_segmenter.py \
   --backbone dinov2 --encoder_weights "" \
   --encoder_depth 12 --in_channels 3 \
-  --dataset_name harvey --dataset_path /nfs/h100/raid/rs/harvey/harvey \
+  --dataset_name harvey --dataset_path /mnt/weka/akhosrovyan/geocrossbench/datasets/x-harvey \
   --img_size 96 --classes 2 --loss_type ce \
   --batch_size 8 --max_epochs 100 --lr 1e-4 --weight_decay 0.01 \
   --lr_sched warmup_cosine --warmup_steps 20 --warmup_lr 1e-6 \
@@ -918,7 +918,7 @@ python train_classifier.py \
 
 ```bash
 for EXP in dinov3_eurosat_rgb_baseline dinov3_eurosat_rgb_dropout; do
-  CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/classification/${EXP}/best-model.ckpt
+  CKPT=/mnt/weka/tgrigoryan/rs_foundation/finetune_ckpts/classification/${EXP}/best-model.ckpt
   python eval_bands_cls.py \
     --model_config configs/dinov3.json \
     --dataset_config configs/m_eurosat.json \
@@ -937,7 +937,7 @@ done
 torchrun --nproc_per_node=2 train_segmenter.py \
   --backbone dinov3_vitb16 --encoder_weights "" \
   --encoder_depth 12 --in_channels 3 \
-  --dataset_name harvey --dataset_path /nfs/h100/raid/rs/harvey/harvey \
+  --dataset_name harvey --dataset_path /mnt/weka/akhosrovyan/geocrossbench/datasets/x-harvey \
   --img_size 96 --classes 2 --loss_type ce \
   --batch_size 8 --max_epochs 100 --lr 1e-4 --weight_decay 0.01 \
   --lr_sched warmup_cosine --warmup_steps 20 --warmup_lr 1e-6 \
@@ -995,7 +995,7 @@ python train_classifier.py \
 
 ```bash
 for EXP in vitb_eurosat_rgb_baseline vitb_eurosat_rgb_dropout; do
-  CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/classification/${EXP}/best-model.ckpt
+  CKPT=/mnt/weka/tgrigoryan/rs_foundation/finetune_ckpts/classification/${EXP}/best-model.ckpt
   python eval_bands_cls.py \
     --model_config configs/timm_vit-b.json \
     --dataset_config configs/m_eurosat.json \
@@ -1011,7 +1011,7 @@ done
 ### Eval — S2 → S2+S1
 
 ```bash
-CKPT=/nfs/h100/raid/rs/tigran_masters/finetune_ckpts/classification/vitb_eurosat_s2_baseline/best-model.ckpt
+CKPT=/mnt/weka/tgrigoryan/rs_foundation/finetune_ckpts/classification/vitb_eurosat_s2_baseline/best-model.ckpt
 python eval_bands_cls.py \
   --model_config configs/timm_vit-b.json \
   --dataset_config configs/m_eurosat.json \
@@ -1030,7 +1030,7 @@ python eval_bands_cls.py \
 torchrun --nproc_per_node=2 train_segmenter.py \
   --backbone timm_vit-b --encoder_weights "" \
   --encoder_depth 12 --in_channels 3 \
-  --dataset_name harvey --dataset_path /nfs/h100/raid/rs/harvey/harvey \
+  --dataset_name harvey --dataset_path /mnt/weka/akhosrovyan/geocrossbench/datasets/x-harvey \
   --img_size 96 --classes 2 --loss_type ce \
   --batch_size 8 --max_epochs 100 --lr 1e-4 --weight_decay 0.01 \
   --lr_sched warmup_cosine --warmup_steps 20 --warmup_lr 1e-6 \

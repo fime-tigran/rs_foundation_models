@@ -25,12 +25,13 @@ from change_detection_pytorch.encoders._utils import adjust_state_dict_prefix
 
 # from aim.pytorch_lightning import AimLogger
 from classifier_utils import ChannelDropout, load_encoder, register_channel_embed_gradient_mask
+from storage_paths import RESULTS_ROOT, results_path
 from utils import create_collate_fn, get_band_indices, get_band_indices_cvit_so2sat, get_band_orders
 
 torch.set_float32_matmul_precision("medium")
 
-WRITE_ROOT = "/nfs/h100/raid/rs/tigran_masters"
-CHECKPOINT_ROOT = f"{WRITE_ROOT}/finetune_ckpts"
+WRITE_ROOT = RESULTS_ROOT
+CHECKPOINT_ROOT = results_path("finetune_ckpts")
 
 
 class WarmupCosineAnnealingLR(torch.optim.lr_scheduler.CosineAnnealingLR):

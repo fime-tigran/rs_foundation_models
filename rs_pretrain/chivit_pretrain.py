@@ -12,6 +12,12 @@ import random
 import math
 import json
 import numpy as np
+import sys
+from pathlib import Path
+_rs_finetune = Path(__file__).resolve().parent.parent / "rs_finetune"
+if str(_rs_finetune) not in sys.path:
+    sys.path.insert(0, str(_rs_finetune))
+from storage_paths import datasets_path
 import utils
 import models
 from collections import defaultdict
@@ -21,7 +27,6 @@ import torch.distributed as dist
 import torch.backends.cudnn as cudnn
 import torch.nn.functional as F
 
-from pathlib import Path
 from torchvision import models as torchvision_models
 from tensorboardX import SummaryWriter
 from models.head import iBOTHead
@@ -221,7 +226,7 @@ def train_ibot(args):
     pred_size = args.patch_size
     datasets = {}
     datasets['MillionAID'] = maid_data_class(
-                "/nfs/h100/raid/rs/maid", 
+                datasets_path("maid"), 
                 transform=maid_transform,
                 patch_size=pred_size,
                 pred_ratio=args.pred_ratio,
@@ -230,7 +235,7 @@ def train_ibot(args):
                 pred_shape=args.pred_shape,
                 pred_start_epoch=args.pred_start_epoch)
     datasets['BEN'] = hdf5_data_class(
-                "/nfs/h100/raid/rs/rs-multiband/BEN_complete.h5", 
+                datasets_path("rs-multiband", "BEN_complete.h5"), 
                 data_key="BEN",
                 transform=transform,
                 patch_size=pred_size,
@@ -240,7 +245,7 @@ def train_ibot(args):
                 pred_shape=args.pred_shape,
                 pred_start_epoch=args.pred_start_epoch)
     datasets['Intelinair'] = hdf5_data_class(
-                "/nfs/h100/raid/rs/rs-multiband/intelinair.h5", 
+                datasets_path("rs-multiband", "intelinair.h5"), 
                 data_key="intelinair",
                 transform=transform,
                 patch_size=pred_size,
@@ -250,7 +255,7 @@ def train_ibot(args):
                 pred_shape=args.pred_shape,
                 pred_start_epoch=args.pred_start_epoch)
     datasets['SEN12MS'] = hdf5_data_class(
-                "/nfs/h100/raid/rs/rs-multiband/sen12ms.h5", 
+                datasets_path("rs-multiband", "sen12ms.h5"), 
                 data_key="SEN12MS",
                 transform=transform,
                 patch_size=pred_size,
@@ -260,8 +265,8 @@ def train_ibot(args):
                 pred_shape=args.pred_shape,
                 pred_start_epoch=args.pred_start_epoch)
     datasets['NAIP'] = NaipDataset(
-                "/nfs/h100/raid/rs/satlas_dataset/naip",
-                stats_dir="/nfs/h100/raid/rs/satlas_dataset/stats/naip_stats",
+                datasets_path("satlas_dataset", "naip"),
+                stats_dir=datasets_path("satlas_dataset", "stats", "naip_stats"),
                 transform=transform,
                 patch_size=pred_size,
                 pred_ratio=args.pred_ratio,
@@ -270,8 +275,8 @@ def train_ibot(args):
                 pred_shape=args.pred_shape,
                 pred_start_epoch=args.pred_start_epoch)
     datasets['SEN1'] = Sen1Dataset(
-                "/nfs/h100/raid/rs/satlas_dataset/sentinel1",
-                stats_dir="/nfs/h100/raid/rs/satlas_dataset/stats/sentinel1_stats",
+                datasets_path("satlas_dataset", "sentinel1"),
+                stats_dir=datasets_path("satlas_dataset", "stats", "sentinel1_stats"),
                 transform=transform,
                 patch_size=pred_size,
                 pred_ratio=args.pred_ratio,
@@ -280,8 +285,8 @@ def train_ibot(args):
                 pred_shape=args.pred_shape,
                 pred_start_epoch=args.pred_start_epoch)
     datasets['SEN2a'] = Sen2Dataset(
-                "/nfs/h100/raid/rs/satlas_dataset/sentinel2a",
-                stats_dir="/nfs/h100/raid/rs/satlas_dataset/stats/sen2a_stats",
+                datasets_path("satlas_dataset", "sentinel2a"),
+                stats_dir=datasets_path("satlas_dataset", "stats", "sen2a_stats"),
                 transform=transform,
                 patch_size=pred_size,
                 pred_ratio=args.pred_ratio,
@@ -290,8 +295,8 @@ def train_ibot(args):
                 pred_shape=args.pred_shape,
                 pred_start_epoch=args.pred_start_epoch)
     datasets['SEN2b'] = Sen2Dataset(
-                "/nfs/h100/raid/rs/satlas_dataset/sentinel2b",
-                stats_dir="/nfs/h100/raid/rs/satlas_dataset/stats/sen2b_stats",
+                datasets_path("satlas_dataset", "sentinel2b"),
+                stats_dir=datasets_path("satlas_dataset", "stats", "sen2b_stats"),
                 transform=transform,
                 patch_size=pred_size,
                 pred_ratio=args.pred_ratio,

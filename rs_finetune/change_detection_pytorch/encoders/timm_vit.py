@@ -6,7 +6,7 @@ import timm
 import torch
 import torch.nn as nn
 from change_detection_pytorch.encoders.vision_transformer import MultiLevelNeck
-
+from storage_paths import base_models_path as _bm
 
 
 def sample_block_indices_uniformly(n: int, total_num_blocks: int) -> list[int]:
@@ -371,7 +371,7 @@ timm_vit_encoders = {
             "pretrained": False,
             "in_channels": 3,
             "feat_depth": 4,
-            "dinov3_weights_path": "/nfs/h100/raid/rs/dinov3_vitb_checkpoint.pth"
+            "dinov3_weights_path": _bm("dinov3_vitb_checkpoint.pth")
             }
         }
     }

@@ -9,6 +9,7 @@ from torchmetrics import Accuracy
 from torch.utils.data import DataLoader
 from argparse import ArgumentParser
 from change_detection_pytorch.datasets import UCMerced, build_transform
+from storage_paths import resolve_dataset_config_dict
 
 
 def main(args):
@@ -18,7 +19,7 @@ def main(args):
         cfg = json.load(config)
     
     with open(args.dataset_config) as config:
-        data_cfg = json.load(config)
+        data_cfg = resolve_dataset_config_dict(json.load(config))
 
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 

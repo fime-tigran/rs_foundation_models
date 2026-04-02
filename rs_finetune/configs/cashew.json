@@ -1,7 +1,7 @@
 {
     "dataset_name": "cashew",
-    "dataset_path": "/nfs/h100/raid/rs/geobench/cashew_benin",
-    "metadata_dir": "/nfs/h100/raid/rs/geobench/cashew_benin",
+    "dataset_path": "x-cashew-plantation",
+    "metadata_dir": "x-cashew-plantation",
     "image_size": 256,
     "batch_size": 64
 

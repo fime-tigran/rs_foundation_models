@@ -9,6 +9,7 @@ from torch.utils.data import Dataset, DataLoader
 # import albumentations as A
 from torchvision.transforms import (Compose, Resize, RandomHorizontalFlip, RandomResizedCrop,
                                     RandomApply, RandomChoice, RandomRotation)
+from storage_paths import datasets_path
 
 
 STATS = {
@@ -119,8 +120,10 @@ class So2SatDataset(Dataset):
                 bands,
                 img_size=32,
                 # transform=None,
-                h5_dir="/nfs/ap/mnt/frtn/rs-multiband/geobench/classification_v1.0/m-so2sat/", 
+                h5_dir=None, 
                 ):
+        if h5_dir is None:
+            h5_dir = datasets_path("x-so2sat")
 
         self.h5_dir = h5_dir
         self.img_size = img_size

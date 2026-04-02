@@ -11,10 +11,13 @@ from torchvision import transforms
 from copy import deepcopy
 from pretrainedmodels.models.torchvision_models import pretrained_settings
 from .vision_transformer import MultiLevelNeck
+from storage_paths import base_models_path as _bm
+
+_DEFAULT_CROMA_WEIGHTS = _bm("croma", "CROMA_base.pt")
 
 new_settings = {
     "CROMA": {
-        "croma": '/nfs/ap/mnt/frtn/croma/CROMA_base.pt',  
+        "croma": _DEFAULT_CROMA_WEIGHTS,
     },
 }
 
@@ -31,7 +34,7 @@ for model_name, sources in new_settings.items():
 
 
 class PretrainedCROMA(nn.Module):
-    def __init__(self, pretrained_path='/nfs/ap/mnt/frtn/croma/CROMA_base.pt', size='base', 
+    def __init__(self, pretrained_path=None, size='base', 
                         modality='both', image_resolution=120, depth=12, patch_size=8, encoder_dim=768,
                         out_idx=None, out_channels=None, for_cls=False):
         """
@@ -39,6 +42,8 @@ class PretrainedCROMA(nn.Module):
         E.g., CROMA was pretrained on 120x120px images, hence image_resolution is 120 by default
         """
         super().__init__()
+        if pretrained_path is None:
+            pretrained_path = _DEFAULT_CROMA_WEIGHTS
         # check types
         assert type(pretrained_path) == str, f'pretrained_path must be a string, not {type(pretrained_path)}'
         assert type(size) == str, f'size must be a string, not {type(size)}'
@@ -412,7 +417,7 @@ croma_encoders = {
         "encoder": PretrainedCROMA,
         "pretrained_settings": pretrained_settings['CROMA'],
         "params": {
-            'pretrained_path': '/nfs/ap/mnt/sxtn/cd/croma/CROMA_base.pt',
+            'pretrained_path': _DEFAULT_CROMA_WEIGHTS,
             "out_idx": (2, 3, 4, 5),
             "out_channels": (768, 768, 768, 768),
             "patch_size": 8,

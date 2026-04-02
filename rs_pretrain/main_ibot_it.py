@@ -34,6 +34,12 @@ from dataset.loader import MyDistributedBatchSampler, ContDistBatchSampler, Cont
 from dataset.satlas_datasets import NaipDataset, Sen1Dataset, Sen2Dataset
 from dataset.lmdb_dataset import LMDBDataset
 
+_rs_finetune = Path(__file__).resolve().parent.parent / "rs_finetune"
+import sys
+if str(_rs_finetune) not in sys.path:
+    sys.path.insert(0, str(_rs_finetune))
+from storage_paths import datasets_path
+
 #from evaluation.unsupervised.unsup_cls import eval_pred
 from models.decoder import UPerNet
 
@@ -236,7 +242,7 @@ def train_ibot(args):
     pred_size = args.patch_size
     datasets = {}
     datasets['MillionAID'] = maid_data_class(
-                "/nfs/h100/raid/rs/maid", 
+                datasets_path("maid"), 
                 transform=maid_transform,
                 patch_size=pred_size,
                 pred_ratio=args.pred_ratio,
@@ -245,7 +251,7 @@ def train_ibot(args):
                 pred_shape=args.pred_shape,
                 pred_start_epoch=args.pred_start_epoch)
     datasets['BEN'] = hdf5_data_class(
-                "/nfs/h100/raid/rs/rs-multiband/BEN_complete.h5", 
+                datasets_path("rs-multiband", "BEN_complete.h5"), 
                 data_key="BEN",
                 transform=transform,
                 patch_size=pred_size,
@@ -255,7 +261,7 @@ def train_ibot(args):
                 pred_shape=args.pred_shape,
                 pred_start_epoch=args.pred_start_epoch)
             # datasets['BEN'] = LMDBDataset(
-            #             "/nfs/h100/raid/rs/rs-multiband/ben_lmdb", 
+            #             "/mnt/weka/akhosrovyan/geocrossbench/datasets/rs-multiband/ben_lmdb", 
             #             transform=transform,
             #             data_shape=(120, 120, 12), 
             #             normalize=False,
@@ -266,7 +272,7 @@ def train_ibot(args):
             #             pred_shape=args.pred_shape,
             #             pred_start_epoch=args.pred_start_epoch)
             # datasets['WHU'] = hdf5_data_class(
-            #             "/nfs/h100/raid/rs/rs-multiband/whu_pretrain.h5", 
+            #             "/mnt/weka/akhosrovyan/geocrossbench/datasets/rs-multiband/whu_pretrain.h5", 
             #             data_key="train",
             #             transform=transform,
             #             patch_size=pred_size,
@@ -276,7 +282,7 @@ def train_ibot(args):
             #             pred_shape=args.pred_shape,
             #             pred_start_epoch=args.pred_start_epoch)
     # datasets['So2Sat'] = hdf5_data_class(
-    #             "/nfs/h100/raid/rs/rs-multiband/so2sat_pretrain.h5", 
+    #             "/mnt/weka/akhosrovyan/geocrossbench/datasets/rs-multiband/so2sat_pretrain.h5", 
     #             data_key="train",
     #             transform=so2sat_transform,
     #             patch_size=pred_size,
@@ -286,7 +292,7 @@ def train_ibot(args):
     #             pred_shape=args.pred_shape,
     #             pred_start_epoch=args.pred_start_epoch)
     datasets['Intelinair'] = hdf5_data_class(
-                "/nfs/h100/raid/rs/rs-multiband/intelinair.h5", 
+                datasets_path("rs-multiband", "intelinair.h5"), 
                 data_key="intelinair",
                 transform=transform,
                 patch_size=pred_size,
@@ -296,7 +302,7 @@ def train_ibot(args):
                 pred_shape=args.pred_shape,
                 pred_start_epoch=args.pred_start_epoch)
             # datasets['Intelinair'] = LMDBDataset(
-            #             "/nfs/h100/raid/rs/rs-multiband/intelinair_lmdb", 
+            #             "/mnt/weka/akhosrovyan/geocrossbench/datasets/rs-multiband/intelinair_lmdb", 
             #             transform=transform,
             #             data_shape=(320, 320, 4), 
             #             normalize=False,
@@ -307,7 +313,7 @@ def train_ibot(args):
             #             pred_shape=args.pred_shape,
             #             pred_start_epoch=args.pred_start_epoch)
     datasets['SEN12MS'] = hdf5_data_class(
-                "/nfs/h100/raid/rs/rs-multiband/sen12ms.h5", 
+                datasets_path("rs-multiband", "sen12ms.h5"), 
                 data_key="SEN12MS",
                 transform=transform,
                 patch_size=pred_size,
@@ -317,7 +323,7 @@ def train_ibot(args):
                 pred_shape=args.pred_shape,
                 pred_start_epoch=args.pred_start_epoch)
             # datasets['SEN12MS'] = LMDBDataset(
-            #             "/nfs/h100/raid/rs/rs-multiband/sen12ms_lmdb", 
+            #             "/mnt/weka/akhosrovyan/geocrossbench/datasets/rs-multiband/sen12ms_lmdb", 
             #             transform=transform,
             #             data_shape=(256, 256, 12), 
             #             normalize=False,
@@ -328,8 +334,8 @@ def train_ibot(args):
             #             pred_shape=args.pred_shape,
             #             pred_start_epoch=args.pred_start_epoch)
     datasets['NAIP'] = NaipDataset(
-                "/nfs/h100/raid/rs/satlas_dataset/naip",
-                stats_dir="/nfs/h100/raid/rs/satlas_dataset/stats/naip_stats",
+                datasets_path("satlas_dataset", "naip"),
+                stats_dir=datasets_path("satlas_dataset", "stats", "naip_stats"),
                 transform=transform,
                 patch_size=pred_size,
                 pred_ratio=args.pred_ratio,
@@ -338,8 +344,8 @@ def train_ibot(args):
                 pred_shape=args.pred_shape,
                 pred_start_epoch=args.pred_start_epoch)
     datasets['SEN1'] = Sen1Dataset(
-                "/nfs/h100/raid/rs/satlas_dataset/sentinel1",
-                stats_dir="/nfs/h100/raid/rs/satlas_dataset/stats/sentinel1_stats",
+                datasets_path("satlas_dataset", "sentinel1"),
+                stats_dir=datasets_path("satlas_dataset", "stats", "sentinel1_stats"),
                 transform=transform,
                 patch_size=pred_size,
                 pred_ratio=args.pred_ratio,
@@ -348,8 +354,8 @@ def train_ibot(args):
                 pred_shape=args.pred_shape,
                 pred_start_epoch=args.pred_start_epoch)
     datasets['SEN2a'] = Sen2Dataset(
-                "/nfs/h100/raid/rs/satlas_dataset/sentinel2a",
-                stats_dir="/nfs/h100/raid/rs/satlas_dataset/stats/sen2a_stats",
+                datasets_path("satlas_dataset", "sentinel2a"),
+                stats_dir=datasets_path("satlas_dataset", "stats", "sen2a_stats"),
                 transform=transform,
                 patch_size=pred_size,
                 pred_ratio=args.pred_ratio,
@@ -358,8 +364,8 @@ def train_ibot(args):
                 pred_shape=args.pred_shape,
                 pred_start_epoch=args.pred_start_epoch)
     datasets['SEN2b'] = Sen2Dataset(
-                "/nfs/h100/raid/rs/satlas_dataset/sentinel2b",
-                stats_dir="/nfs/h100/raid/rs/satlas_dataset/stats/sen2b_stats",
+                datasets_path("satlas_dataset", "sentinel2b"),
+                stats_dir=datasets_path("satlas_dataset", "stats", "sen2b_stats"),
                 transform=transform,
                 patch_size=pred_size,
                 pred_ratio=args.pred_ratio,

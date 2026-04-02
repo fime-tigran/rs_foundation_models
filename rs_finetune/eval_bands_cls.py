@@ -13,6 +13,7 @@ from tqdm import tqdm
 import train_classifier as tr_cls
 from change_detection_pytorch.datasets import BrickKiln, So2SatDataset, mBigearthnet, mEurosat
 from change_detection_pytorch.datasets.BEN import GROUP_LABELS, NEW_LABELS, normalize_stats
+from storage_paths import DATASETS_ROOT, datasets_path, resolve_dataset_config_dict, results_path
 from utils import create_collate_fn, get_band_orders
 
 SAR_STATS = {"mean": {"VH": -19.29836, "VV": -12.623948}, "std": {"VH": 5.4643545, "VV": 5.1194134}}
@@ -33,14 +34,16 @@ def get_multihot_new(labels):
 
 def eval_sar(args):
     results = {}
-    test_samples = np.load("/nfs/ap/mnt/frtn/rs-multiband/BigEarthNet/s2_s1_mapping_test.npy", allow_pickle=True).item()
-    root_path = "/nfs/ap/mnt/frtn/rs-multiband/"
+    test_samples = np.load(
+        datasets_path("x-bigearthnet", "s2_s1_mapping_test.npy"), allow_pickle=True
+    ).item()
+    root_path = DATASETS_ROOT
     results[args.checkpoint_path] = {}
     with open(args.model_config) as config:
         cfg = json.load(config)
 
     with open(args.dataset_config) as config:
-        data_cfg = json.load(config)
+        data_cfg = resolve_dataset_config_dict(json.load(config))
 
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
@@ -117,7 +120,7 @@ def eval_sar(args):
                 vh = d
             else:
                 labels = d
-        with open(f"/nfs/h100/raid/rs/metadata_ben_clay/{k}.json") as f:
+        with open(datasets_path("x-bigearthnet", "metadata_ben_clay", f"{k}.json")) as f:
             metadata = json.load(f)
             metadata.update({"waves": [3.5, 4.0, 0]})
             if args.replace_rgb_with_others:
@@ -224,8 +227,9 @@ def main(args):
         os.makedirs("./eurosat_features", exist_ok=True)
 
     if "so2sat" in args.dataset_config and args.save_encoder_features:
-        print(f"Creating SO2Sat directory: /nfs/dgx/raid/rs/rs/so2sat_UB_S2/{args.so2sat_folder_name}")
-        os.makedirs(f"/nfs/dgx/raid/rs/rs/so2sat_UB_S2/{args.so2sat_folder_name}", exist_ok=True)
+        _so2sat_cache = results_path("eval_cache", "so2sat_UB_S2", args.so2sat_folder_name)
+        print(f"Creating SO2Sat directory: {_so2sat_cache}")
+        os.makedirs(_so2sat_cache, exist_ok=True)
         print("Directory created successfully")
 
     bands = json.loads(args.bands)
@@ -240,7 +244,7 @@ def main(args):
             cfg = json.load(config)
 
         with open(args.dataset_config) as config:
-            data_cfg = json.load(config)
+            data_cfg = resolve_dataset_config_dict(json.load(config))
 
         print(f"Dataset config loaded: {data_cfg}")
         print(f"Dataset name: {data_cfg.get('dataset_name', 'NOT_FOUND')}")
@@ -498,8 +502,9 @@ def main(args):
                                 image_id = f"so2sat_{total_samples + idx}"
                                 feat_np = feat.cpu().numpy()
                                 class_np = true_class.cpu().numpy()
-                                feat_path = f"/nfs/dgx/raid/rs/rs/so2sat_UB_S2/{args.so2sat_folder_name}/{image_id}_{''.join(band)}.npy"
-                                class_path = f"/nfs/dgx/raid/rs/rs/so2sat_UB_S2/{args.so2sat_folder_name}/{image_id}_{''.join(band)}_class.npy"
+                                _cache = results_path("eval_cache", "so2sat_UB_S2", args.so2sat_folder_name)
+                                feat_path = f"{_cache}/{image_id}_{''.join(band)}.npy"
+                                class_path = f"{_cache}/{image_id}_{''.join(band)}_class.npy"
                                 print(f"Saving feature to: {feat_path}")
                                 np.save(feat_path, feat_np)
                                 np.save(class_path, class_np)

@@ -5,6 +5,7 @@ import torch
 from torch.utils.data import Dataset
 import rasterio
 import numpy as np
+from storage_paths import datasets_path
 
 STATS = {
     'mean': {
@@ -128,7 +129,7 @@ class BuildingDataset(Dataset):
                  weight=1,
                  band_repeat_count=0,
                  replace_rgb_with_others=False,
-                 metadata_path='/nfs/h100/raid/rs/metadata_harvey', is_train=False):
+                 metadata_path=None, is_train=False):
         """
         Args:
             split_list (str): Path to the .txt file containing folder paths.
@@ -137,6 +138,8 @@ class BuildingDataset(Dataset):
             std (list or np.array): Per-channel std for normalization.
             transform (callable, optional): Transform to apply to the data.
         """
+        if metadata_path is None:
+            metadata_path = datasets_path("x-harvey", "metadata")
 
         self.classes = ['not a flooded building', 'flooded']
         self.split = os.path.splitext(os.path.basename(split_list))[0]

@@ -16,6 +16,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from change_detection_pytorch.datasets import BuildingDataset, Sen1Floods11, mCashewPlantation, mSAcrop
 from change_detection_pytorch.datasets import normalize_channel, RGB_BANDS, STATS
 from evaluator import SegEvaluator
+from storage_paths import resolve_dataset_config_dict
 from utils import create_collate_fn
 
 def main(args):
@@ -28,7 +29,7 @@ def main(args):
     with open(args.model_config) as config:
         cfg = json.load(config)
     with open(args.dataset_config) as config:
-        data_cfg = json.load(config)
+        data_cfg = resolve_dataset_config_dict(json.load(config))
 
     dataset_path = data_cfg['dataset_path']
     metadata_dir = data_cfg['metadata_dir']

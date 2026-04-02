@@ -12,6 +12,7 @@ from pytorch_lightning import LightningDataModule
 from torch.utils.data import Dataset, DataLoader
 from torchvision.datasets.utils import download_and_extract_archive, download_url
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
+from storage_paths import datasets_path
 
 
 class Subset(Dataset):
@@ -374,7 +375,7 @@ class Bigearthnet(Dataset):
         if self.target_transform is not None:
             target = self.target_transform(target)
 
-        with open(f'/nfs/h100/raid/rs/metadata_ben_clay/{patch_id}.json', 'r') as f:
+        with open(datasets_path("x-bigearthnet", "metadata_ben_clay", f"{patch_id}.json"), "r") as f:
             metadata = json.load(f)
         metadata.update({'waves': [WAVES[b] for b in self.bands if b in self.bands]})
 
