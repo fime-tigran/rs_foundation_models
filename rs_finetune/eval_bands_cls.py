@@ -87,6 +87,7 @@ def eval_sar(args):
         shared_proj=args.shared_proj,
         add_ch_embed=args.add_ch_embed,
         pooling_mode=getattr(args, "pooling_mode", "cls"),
+        enable_channel_gate=args.enable_channel_gate,
     )
     model.load_state_dict(checkpoint["state_dict"])
 
@@ -281,6 +282,7 @@ def main(args):
             shared_proj=args.shared_proj,
             add_ch_embed=args.add_ch_embed,  # , channels=[0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13])
             pooling_mode=args.pooling_mode,
+            enable_channel_gate=args.enable_channel_gate,
         )
         model.load_state_dict(checkpoint["state_dict"])
 
@@ -609,6 +611,7 @@ if __name__ == "__main__":
         choices=["cls", "channel_mean", "cls+channel_mean"],
         help="χViT: cls (default), channel_mean (channel-count-invariant), cls+channel_mean",
     )
+    parser.add_argument("--enable_channel_gate", action="store_true", help="χViT: load checkpoint with per-channel gates")
     parser.add_argument(
         "--spectral_init_new_channels",
         action="store_true",

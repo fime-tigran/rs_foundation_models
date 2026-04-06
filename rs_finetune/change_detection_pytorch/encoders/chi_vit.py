@@ -363,11 +363,11 @@ class ChiVisionTransformer(nn.Module):
         if not self.add_ch_embed: # instead use the self attention with the channel embedding
             x = self.att_channel_embed(x, out_size, channel_idxs)
 
-        return self.pos_drop(x), out_size
+        return self.pos_drop(x), out_size, Cin_new
 
     def forward(self, x, channel_idxs):
         feats = []
-        x, hw_shape = self.prepare_tokens(x, channel_idxs)
+        x, hw_shape, n_ch_actual = self.prepare_tokens(x, channel_idxs)
 
         for i, blk in enumerate(self.blocks):
             x = blk(x)
@@ -386,7 +386,7 @@ class ChiVisionTransformer(nn.Module):
         if self.pooling_mode == "cls":
             return x[:, 0, :]
         # Channel-count-invariant pooling: mean over spatial then channels; stable when adding bands at eval
-        n_ch = len(channel_idxs) if isinstance(channel_idxs, (list, tuple)) else channel_idxs.shape[-1]
+        n_ch = int(n_ch_actual)
         patch_tokens = x[:, 1:]
         B, N, D = patch_tokens.shape
         spatial = N // n_ch
@@ -397,7 +397,7 @@ class ChiVisionTransformer(nn.Module):
         return (x[:, 0, :] + pool_feat) / 2
 
     def get_last_selfattention(self, x, channel_idxs):
-        x = self.prepare_tokens(x)
+        x, _, _ = self.prepare_tokens(x, channel_idxs)
         for i, blk in enumerate(self.blocks):
             if i < len(self.blocks) - 1:
                 x = blk(x)
@@ -406,7 +406,7 @@ class ChiVisionTransformer(nn.Module):
                 return blk(x, return_attention=True)
 
     def get_intermediate_layers(self, x, channel_idxs, n=1):
-        x = self.prepare_tokens(x, channel_idxs)
+        x, _, _ = self.prepare_tokens(x, channel_idxs)
         # we return the output tokens from the `n` last blocks
         output = []
         for i, blk in enumerate(self.blocks):
