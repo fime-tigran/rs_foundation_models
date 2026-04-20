@@ -74,6 +74,12 @@ class UPerNet(SegmentationModel):
         multiband_channel_count: int = 12,
         channel_dropout_rate: float = 0.0,
         min_drop_channels: int = 1,
+        pooling_mode: str = "cls",
+        shared_proj: bool = True,
+        add_ch_embed: bool = True,
+        enable_channel_gate: bool = False,
+        min_sample_channels: int = 1,
+        color_blind: bool = False,
         **kwargs
     ):
         super().__init__()
@@ -93,6 +99,12 @@ class UPerNet(SegmentationModel):
             depth=encoder_depth,
             weights=encoder_weights,
             enable_sample=enable_sample,
+            color_blind=color_blind,
+            pooling_mode=pooling_mode,
+            shared_proj=shared_proj,
+            add_ch_embed=add_ch_embed,
+            enable_channel_gate=enable_channel_gate,
+            min_sample_channels=min_sample_channels,
         )
 
         if not self.siam_encoder:
@@ -101,6 +113,13 @@ class UPerNet(SegmentationModel):
                 in_channels=in_channels,
                 depth=encoder_depth,
                 weights=encoder_weights,
+                enable_sample=enable_sample,
+                color_blind=color_blind,
+                pooling_mode=pooling_mode,
+                shared_proj=shared_proj,
+                add_ch_embed=add_ch_embed,
+                enable_channel_gate=enable_channel_gate,
+                min_sample_channels=min_sample_channels,
             )
 
         if enable_multiband_input:

@@ -27,7 +27,8 @@ def init_dist(master_port):
 
 def load_model(checkpoint_path='',encoder_depth=12, backbone='Swin-B', encoder_weights='geopile', upernet_width=256,
                 fusion='diff', load_decoder=False, in_channels = 3, channels=[0, 1, 2], upsampling=4, out_size=224, enable_multiband=False, multiband_channel_count=12,
-                spectral_init=False, training_bands=None, new_bands=None):
+                spectral_init=False, training_bands=None, new_bands=None,
+                enable_sample=False, pooling_mode='cls', shared_proj=True, add_ch_embed=True, enable_channel_gate=False, min_sample_channels=1, color_blind=False):
     # Use multiband_channel_count as in_channels when multiband input is enabled
     actual_in_channels = multiband_channel_count if enable_multiband else in_channels
     
@@ -47,7 +48,14 @@ def load_model(checkpoint_path='',encoder_depth=12, backbone='Swin-B', encoder_w
         decoder_pyramid_channels=upernet_width,
         decoder_segmentation_channels=upernet_width,
         enable_multiband_input=enable_multiband,  # Set to False to avoid built-in adaptation
-        multiband_channel_count=multiband_channel_count
+        multiband_channel_count=multiband_channel_count,
+        enable_sample=enable_sample,
+        pooling_mode=pooling_mode,
+        shared_proj=shared_proj,
+        add_ch_embed=add_ch_embed,
+        enable_channel_gate=enable_channel_gate,
+        min_sample_channels=min_sample_channels,
+        color_blind=color_blind,
     )
     
     # Manually adapt encoder for multiband input if needed

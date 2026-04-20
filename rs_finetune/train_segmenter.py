@@ -1,3 +1,4 @@
+import argparse
 import os
 from argparse import ArgumentParser
 
@@ -47,6 +48,11 @@ def main(args):
             channel_dropout_rate=args.channel_dropout_rate,
             min_drop_channels=args.min_drop_channels,
             color_blind=args.color_blind,
+            pooling_mode=args.pooling_mode,
+            shared_proj=args.shared_proj,
+            add_ch_embed=args.add_ch_embed,
+            enable_channel_gate=args.enable_channel_gate,
+            min_sample_channels=args.min_sample_channels,
         )
     else:
         model = cdp.UPerNetSeg(
@@ -71,6 +77,11 @@ def main(args):
             channel_dropout_rate=args.channel_dropout_rate,
             min_drop_channels=args.min_drop_channels,
             color_blind=args.color_blind,
+            pooling_mode=args.pooling_mode,
+            shared_proj=args.shared_proj,
+            add_ch_embed=args.add_ch_embed,
+            enable_channel_gate=args.enable_channel_gate,
+            min_sample_channels=args.min_sample_channels,
         )
     if args.load_from_checkpoint:
         checkpoint = torch.load(args.checkpoint_path, map_location=torch.device(DEVICE))
@@ -299,6 +310,16 @@ if __name__ == "__main__":
     parser.add_argument("--channel_dropout_rate", type=float, default=0.0)
     parser.add_argument("--min_drop_channels", type=int, default=1)
     parser.add_argument("--color_blind", action="store_true")
+    parser.add_argument(
+        "--pooling_mode",
+        type=str,
+        default="cls",
+        choices=["cls", "channel_mean", "cls+channel_mean"],
+    )
+    parser.add_argument("--shared_proj", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--add_ch_embed", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--enable_channel_gate", action="store_true")
+    parser.add_argument("--min_sample_channels", type=int, default=1)
 
     args = parser.parse_args()
     seed_torch(seed=args.seed)

@@ -96,8 +96,14 @@ Primary dataset: `m_eurosat`. Propagate winners to `so2sat`, `m_ben`, `m_brick`.
 | **E10** | ✓ | ch_mean | freeze | ✓ | 0.2 | ✓ | `E10_fullstack` |
 | **E11** | ✓ | ch_mean | C-soft | — | 0.2 | ✓ | `E11_soft_embedreg` |
 | **E12** | ✓ | cls+ch | freeze | — | 0.2 | — | `E12_combined_pool` |
+| **E13** | — | cls+ch | — | — | — | — | `E13_cls_ch_pool` |
+| **E14** | ✓ | cls+ch | — | — | — | — | `E14_hcs_cls_ch_pool` |
+| **E15** | ✓ | cls+ch | freeze | — | — | — | `E15_hcs_cls_ch_pool_embedfreeze` |
+| **E16** | ✓ | cls+ch | freeze | — | 0.2 | ✓ | `E16_hcs_cls_ch_pool_embedfreeze_dropout_curriculum` |
+| **E17** | ✓ | cls+ch | freeze | ✓ | 0.2 | ✓ | `E17_hcs_cls_ch_fullstack` |
+| **E18** | ✓ | cls+ch | C-soft | — | 0.2 | ✓ | `E18_hcs_cls_ch_soft_embedreg` |
 
-**Recommended run order:** E0 → E6 → E7 → E9 → E10 (each adds one fix; skip if previous showed no benefit).
+**Recommended run order:** E0 → E6 → E7 → E9 → E10 (each adds one fix; skip if previous showed no benefit). For **cls+channel_mean** ladder: E13 → E14 → E15 → E12 → E16 → E17 (and E18 vs E16 if comparing soft embed reg).
 
 ---
 
@@ -299,6 +305,97 @@ uv run train_classifier.py \
   --experiment_name cvit_eurosat_rgb_E12_combined_pool
 ```
 
+### E13 — cls+channel_mean pool only
+
+```bash
+uv run train_classifier.py \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
+  --dataset_name m_eurosat --image_size 64 \
+  --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
+  --warmup_steps 5 --scheduler cosine --add_ch_embed --optimizer adamw \
+  --bands B04 B03 B02 --pooling_mode cls+channel_mean --shared_proj \
+  --device 1 --seed 42 --only_head \
+  --experiment_name cvit_eurosat_rgb_E13_cls_ch_pool
+```
+
+### E14 — HCS + cls+channel_mean pool
+
+```bash
+uv run train_classifier.py \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
+  --dataset_name m_eurosat --image_size 64 \
+  --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
+  --warmup_steps 5 --scheduler cosine --add_ch_embed --optimizer adamw \
+  --bands B04 B03 B02 --pooling_mode cls+channel_mean --shared_proj \
+  --enable_sample --min_sample_channels 1 \
+  --device 1 --seed 42 --only_head \
+  --experiment_name cvit_eurosat_rgb_E14_hcs_cls_ch_pool
+```
+
+### E15 — HCS + cls+channel_mean + embed freeze
+
+```bash
+uv run train_classifier.py \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
+  --dataset_name m_eurosat --image_size 64 \
+  --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
+  --warmup_steps 5 --scheduler cosine --add_ch_embed --optimizer adamw \
+  --bands B04 B03 B02 --pooling_mode cls+channel_mean --shared_proj \
+  --enable_sample --min_sample_channels 1 \
+  --freeze_unused_channel_embeds \
+  --device 1 --seed 42 --only_head \
+  --experiment_name cvit_eurosat_rgb_E15_hcs_cls_ch_pool_embedfreeze
+```
+
+### E16 — HCS + cls+channel_mean + embed freeze + dropout + curriculum
+
+```bash
+uv run train_classifier.py \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
+  --dataset_name m_eurosat --image_size 64 \
+  --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
+  --warmup_steps 5 --scheduler cosine --add_ch_embed --optimizer adamw \
+  --bands B04 B03 B02 --pooling_mode cls+channel_mean --shared_proj \
+  --enable_sample --min_sample_channels 1 --curriculum_sampling \
+  --freeze_unused_channel_embeds \
+  --channel_dropout_rate 0.2 --min_drop_channels 1 \
+  --device 1 --seed 42 --only_head \
+  --experiment_name cvit_eurosat_rgb_E16_hcs_cls_ch_pool_embedfreeze_dropout_curriculum
+```
+
+### E17 — Full stack (cls+channel_mean)
+
+```bash
+uv run train_classifier.py \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
+  --dataset_name m_eurosat --image_size 64 \
+  --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
+  --warmup_steps 5 --scheduler cosine --add_ch_embed --optimizer adamw \
+  --bands B04 B03 B02 --pooling_mode cls+channel_mean --shared_proj \
+  --enable_sample --min_sample_channels 1 --curriculum_sampling \
+  --freeze_unused_channel_embeds \
+  --channel_dropout_rate 0.2 --min_drop_channels 1 \
+  --enable_channel_gate \
+  --device 1 --seed 42 --only_head \
+  --experiment_name cvit_eurosat_rgb_E17_hcs_cls_ch_fullstack
+```
+
+### E18 — HCS + cls+channel_mean + C-soft + dropout + curriculum
+
+```bash
+uv run train_classifier.py \
+  --backbone cvit-pretrained --encoder_weights chi_vit \
+  --dataset_name m_eurosat --image_size 64 \
+  --batch_size 64 --epoch 50 --lr 1e-4 --weight_decay 0.05 \
+  --warmup_steps 5 --scheduler cosine --add_ch_embed --optimizer adamw \
+  --bands B04 B03 B02 --pooling_mode cls+channel_mean --shared_proj \
+  --enable_sample --min_sample_channels 1 --curriculum_sampling \
+  --channel_embed_reg_lambda 0.1 \
+  --channel_dropout_rate 0.2 --min_drop_channels 1 \
+  --device 1 --seed 42 --only_head \
+  --experiment_name cvit_eurosat_rgb_E18_hcs_cls_ch_soft_embedreg
+```
+
 ---
 
 ## 1.4 χViT S2 Training (10 bands → S2+S1 eval)
@@ -346,6 +443,8 @@ uv run train_classifier.py \
 `eval_bands_cls.py` `channel_vit_order`: `['B02','B03','B04','B05','B06','B07','B08','B8A','B11','B12','VV','VH']`.  
 `--bands` is a **JSON string**. Match training: `--pooling_mode`, `--shared_proj`, and `--add_ch_embed` (same as classification training).
 
+Slurm/local ablation scripts (`rs_finetune/ablation_classification_common.sh`): after each train, **RGB→RGBN** eval uses `--enable_multiband_input --multiband_channel_count 4`, `--preserve_rgb_weights`, `--training_bands` / `--new_bands` for B08, and writes both **mean-init** and **spectral-init** result files per pooling sweep (`*_meaninit`, `*_spectralinit`). In-distribution RGB (3-band) evals stay without those multiband flags.
+
 ### RGB → RGBN (two variants per experiment)
 
 ```bash
@@ -377,7 +476,7 @@ uv run eval_bands_cls.py \
   --filename eval_${EXP}_rgbn_spectralinit
 ```
 
-Swap `EXP` and `--pooling_mode` per experiment. Always keep `--shared_proj --add_ch_embed`. For E0–E5 use `cls`; for E12 use `cls+channel_mean`.
+Swap `EXP` and `--pooling_mode` per experiment. Always keep `--shared_proj --add_ch_embed`. For E0–E5 use `cls`; for **E12–E18** (cls+channel_mean training) use `cls+channel_mean` on the primary RGBN line; the ablation shell also runs diagnostic sweeps (`cls`, `channel_mean`, `cls+channel_mean`) on RGB and RGBN for analysis.
 
 ### S2 → S2+S1
 
@@ -427,6 +526,8 @@ done
 ## 1.7 χViT Segmentation — Harvey & Sen1Floods11
 
 Script: `torchrun`. Band format: shorthand no leading zero (`B4 B3 B2`, `vv vh`).
+
+`train_segmenter.py` and `eval_bands_seg.py` accept optional χViT encoder flags aligned with classification: `--pooling_mode {cls,channel_mean,cls+channel_mean}`, `--shared_proj` / `--no-shared_proj`, `--add_ch_embed` / `--no-add-ch_embed`, `--enable_channel_gate`, `--min_sample_channels`, `--enable_sample`. Pass the same `--pooling_mode` (and related flags) at eval as at train. Example reference script: `rs_finetune/ablation_seg_cvit_rgb_example.sh`.
 
 ### RGB training
 
@@ -482,6 +583,8 @@ uv run eval_bands_seg.py \
   --dataset_config configs/harvey.json \
   --checkpoint_path "$CKPT" \
   --size 96 --classes 2 --upernet_width 256 \
+  --cvit_channels 2 1 0 \
+  --pooling_mode channel_mean --shared_proj --add_ch_embed \
   --enable_multiband_input --multiband_channel_count 4 \
   --preserve_rgb_weights --spectral_init_new_channels \
   --training_bands '["B4","B3","B2"]' --new_bands '["B8"]' \
@@ -513,6 +616,8 @@ uv run eval_bands_seg.py \
 
 Script: `torchrun`. Flag is `--enable_multiband` (not `--enable_multiband_input`).  
 Harvey split lists are hardcoded inside the script.
+
+`train_change.py` and `eval_bands_cd.py` accept the same χViT encoder flags as §1.7 (`--pooling_mode`, `--shared_proj` / `--no-shared_proj`, `--add_ch_embed` / `--no-add-ch_embed`, `--enable_channel_gate`, `--min_sample_channels`, `--enable_sample`). Example: `rs_finetune/ablation_cd_cvit_rgb_example.sh`.
 
 ### RGB training
 
@@ -649,6 +754,12 @@ uv run eval_bands_cd.py \
 | E10 | ch_mean | ✓ | freeze | 0.2 | ✓ | ✓ | | | | |
 | E11 | ch_mean | ✓ | reg | 0.2 | ✓ | — | | | | |
 | E12 | cls+ch | ✓ | freeze | 0.2 | — | — | | | | |
+| E13 | cls+ch | — | — | — | — | — | | | | |
+| E14 | cls+ch | ✓ | — | — | — | — | | | | |
+| E15 | cls+ch | ✓ | freeze | — | — | — | | | | |
+| E16 | cls+ch | ✓ | freeze | 0.2 | ✓ | — | | | | |
+| E17 | cls+ch | ✓ | freeze | 0.2 | ✓ | ✓ | | | | |
+| E18 | cls+ch | ✓ | reg | 0.2 | ✓ | — | | | | |
 
 Positive Δ (RGBN−RGB) = model leverages extra NIR band. **This is the primary success criterion.**
 
@@ -1087,6 +1198,7 @@ Fill in after each eval. The goal: χViT (with best E-ID) shows larger positive 
 | 9 | OSCD SAR-only eval uses `--sar`; S2+SAR superset uses `--s2_sar` | Two different code paths |
 | 10 | Classification checkpoint: `.ckpt` (Lightning); Seg/CD: `.pth` (state_dict) | |
 | 11 | χViT cls eval must match training | Same `--pooling_mode`, `--shared_proj`, `--add_ch_embed` as `train_classifier.py` |
+| 12 | χViT seg/CD eval must match training | Same `--pooling_mode`, `--shared_proj`, `--add_ch_embed`, `--enable_channel_gate`, `--enable_sample`, `--min_sample_channels` as `train_segmenter.py` / `train_change.py` |
 
 ---
 

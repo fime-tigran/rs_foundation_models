@@ -55,13 +55,23 @@ def get_encoder(name, in_channels=3, depth=5, weights=None, output_stride=32, sc
     except KeyError:
         raise KeyError("Wrong encoder name `{}`, supported encoders: {}".format(name, list(encoders.keys())))
 
-    params = encoders[name]["params"]
+    params = {**encoders[name]["params"]}
     params.update(depth=depth)
-    # params.update(scales=scales)
+
+    _cvit_pretrained_encoder_keys = (
+        "pooling_mode",
+        "shared_proj",
+        "add_ch_embed",
+        "enable_channel_gate",
+        "min_sample_channels",
+    )
 
     if 'cvit-pretrained' in name.lower():
         params.update(return_feats=True)
         params.update(enable_sample=enable_sample)
+        for _key in _cvit_pretrained_encoder_keys:
+            if _key in kwargs:
+                params[_key] = kwargs[_key]
     elif 'dinov3' in name.lower():
         params.update(enable_sample=enable_sample)
         params.update(color_blind=color_blind)

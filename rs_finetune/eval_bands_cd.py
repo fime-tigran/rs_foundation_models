@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import random
@@ -133,6 +134,13 @@ def eval_on_sar(args):
         spectral_init=args.spectral_init_new_channels,
         training_bands=training_bands,
         new_bands=new_bands,
+        enable_sample=args.enable_sample,
+        pooling_mode=args.pooling_mode,
+        shared_proj=args.shared_proj,
+        add_ch_embed=args.add_ch_embed,
+        enable_channel_gate=args.enable_channel_gate,
+        min_sample_channels=args.min_sample_channels,
+        color_blind=args.color_blind,
     )
     model.eval()
     model.to(args.device)
@@ -337,6 +345,13 @@ def eval_on_s2_sar(args):
         spectral_init=args.spectral_init_new_channels,
         training_bands=training_bands,
         new_bands=new_bands,
+        enable_sample=args.enable_sample,
+        pooling_mode=args.pooling_mode,
+        shared_proj=args.shared_proj,
+        add_ch_embed=args.add_ch_embed,
+        enable_channel_gate=args.enable_channel_gate,
+        min_sample_channels=args.min_sample_channels,
+        color_blind=args.color_blind,
     )
     model.eval()
     model.to(args.device)
@@ -459,6 +474,13 @@ def main(args):
             spectral_init=args.spectral_init_new_channels,
             training_bands=training_bands,
             new_bands=new_bands,
+            enable_sample=args.enable_sample,
+            pooling_mode=args.pooling_mode,
+            shared_proj=args.shared_proj,
+            add_ch_embed=args.add_ch_embed,
+            enable_channel_gate=args.enable_channel_gate,
+            min_sample_channels=args.min_sample_channels,
+            color_blind=args.color_blind,
         )
         model.eval()
         model.to(args.device)
@@ -616,6 +638,17 @@ if __name__ == "__main__":
         "--new_bands", type=str, default="", help='JSON array of bands added at eval, e.g. ["B08"] for RGB->RGBN'
     )
     parser.add_argument("--color_blind", action="store_true")
+    parser.add_argument("--enable_sample", action="store_true")
+    parser.add_argument(
+        "--pooling_mode",
+        type=str,
+        default="cls",
+        choices=["cls", "channel_mean", "cls+channel_mean"],
+    )
+    parser.add_argument("--shared_proj", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--add_ch_embed", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--enable_channel_gate", action="store_true")
+    parser.add_argument("--min_sample_channels", type=int, default=1)
 
     args = parser.parse_args()
 

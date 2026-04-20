@@ -1,5 +1,6 @@
-import os
+import argparse
 import json
+import os
 import torch
 import rasterio
 import numpy as np
@@ -62,7 +63,13 @@ def main(args):
                 enable_multiband_input=args.enable_multiband_input,
                 multiband_channel_count=initial_channels,
                 color_blind=args.color_blind,
-                # channels=args.channels  #[0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13]
+                channels=args.cvit_channels,
+                enable_sample=args.enable_sample,
+                pooling_mode=args.pooling_mode,
+                shared_proj=args.shared_proj,
+                add_ch_embed=args.add_ch_embed,
+                enable_channel_gate=args.enable_channel_gate,
+                min_sample_channels=args.min_sample_channels,
             )
     model.to(args.device)
     # model = DDP(model)
@@ -233,6 +240,18 @@ if __name__== '__main__':
                         help='JSON array of train-time bands, e.g. ["B04","B03","B02"]')
     parser.add_argument('--new_bands', type=str, default='',
                         help='JSON array of bands added at eval, e.g. ["B08"] for RGB->RGBN')
+    parser.add_argument("--cvit_channels", nargs="+", type=int, default=[0, 1, 2])
+    parser.add_argument("--enable_sample", action="store_true")
+    parser.add_argument(
+        "--pooling_mode",
+        type=str,
+        default="cls",
+        choices=["cls", "channel_mean", "cls+channel_mean"],
+    )
+    parser.add_argument("--shared_proj", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--add_ch_embed", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--enable_channel_gate", action="store_true")
+    parser.add_argument("--min_sample_channels", type=int, default=1)
 
     args = parser.parse_args()
     main(args)

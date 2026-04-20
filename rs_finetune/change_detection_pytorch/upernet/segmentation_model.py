@@ -73,6 +73,11 @@ class UPerNetSeg(SegmentationModel):
         channel_dropout_rate: float = 0.0,
         min_drop_channels: int = 1,
         color_blind: bool = False,
+        pooling_mode: str = "cls",
+        shared_proj: bool = True,
+        add_ch_embed: bool = True,
+        enable_channel_gate: bool = False,
+        min_sample_channels: int = 1,
         **kwargs,
     ):
         super().__init__()
@@ -98,6 +103,11 @@ class UPerNetSeg(SegmentationModel):
             enable_multiband_input=enable_multiband_input,
             multiband_channel_count=multiband_channel_count,
             color_blind=color_blind,
+            pooling_mode=pooling_mode,
+            shared_proj=shared_proj,
+            add_ch_embed=add_ch_embed,
+            enable_channel_gate=enable_channel_gate,
+            min_sample_channels=min_sample_channels,
         )
         if enable_multiband_input:
             self._adapt_encoder_for_multiband()
