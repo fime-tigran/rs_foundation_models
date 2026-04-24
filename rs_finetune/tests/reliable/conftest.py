@@ -31,7 +31,7 @@ class _TinyMockMultispecBackbone(nn.Module):
         self.channel_embed = nn.Parameter(torch.randn(n_channels, embed_dim) * 0.02)
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=embed_dim, nhead=4, dim_feedforward=embed_dim * 2,
-            batch_first=True,
+            batch_first=True, dropout=0.0,
         )
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=depth)
 
@@ -65,7 +65,7 @@ class _TinyMockRGBOnlyBackbone(nn.Module):
                                      stride=patch)
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=embed_dim, nhead=4, dim_feedforward=embed_dim * 2,
-            batch_first=True,
+            batch_first=True, dropout=0.0,
         )
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=depth)
 

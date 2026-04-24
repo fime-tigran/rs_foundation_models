@@ -59,3 +59,22 @@ def test_attach_last_n_replaces_mlp_linears_on_tail(tiny_mock_multispec_backbone
     assert isinstance(head.linear2, nn.Linear)
     assert not isinstance(head.linear1, LoRALayer)
     assert not isinstance(head.linear2, LoRALayer)
+
+
+def test_attach_last_n_preserves_forward_at_init(
+    tiny_mock_multispec_backbone, synthetic_multispec_batch
+):
+    """With zero-init B and bias preserved, wrapping tail MLP linears must
+    not change the model's forward output."""
+    import copy
+
+    model = tiny_mock_multispec_backbone(n_channels=4, embed_dim=32)
+    reference = copy.deepcopy(model)
+    attach_lora_to_last_n(model, last_n=1, rank=4)
+
+    x = synthetic_multispec_batch(n_channels=3)
+    channel_ids = [0, 1, 2]
+    with torch.no_grad():
+        ref_out = reference(x, channel_ids=channel_ids)
+        mod_out = model(x, channel_ids=channel_ids)
+    assert torch.allclose(ref_out, mod_out, atol=1e-5)
