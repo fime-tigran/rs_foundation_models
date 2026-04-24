@@ -2,18 +2,31 @@
 
 Attaches LoRA adapters to the last N layers of a transformer-style backbone
 so earlier layers stay bit-identical to the pretrained model.
+
+For each targeted layer, replaces ``self_attn.out_proj`` (an ``nn.Linear``)
+with a :class:`reliable.lora_layer.LoRALayer` wrapping the original weight
+as a frozen base, then sets a ``_lora_registry`` marker for introspection.
 """
 
 import torch.nn as nn
 
+from reliable.lora_layer import LoRALayer
+
+
+def _wrap_linear_with_lora(linear: nn.Linear, rank: int) -> LoRALayer:
+    return LoRALayer(
+        d_in=linear.in_features,
+        d_out=linear.out_features,
+        rank=rank,
+        base_weight=linear.weight.detach().clone(),
+    )
+
 
 def attach_lora_to_last_n(model: nn.Module, last_n: int, rank: int) -> None:
-    """Attach a LoRA marker dict to the last ``last_n`` transformer layers.
+    """Attach LoRA adapters to the last ``last_n`` transformer layers.
 
     No-op when ``last_n <= 0``. Raises :class:`ValueError` when the model
-    does not expose a ``transformer.layers`` attribute (the interface
-    assumed by our mock backbones and by the ``nn.TransformerEncoder``
-    family).
+    does not expose a ``transformer.layers`` attribute.
     """
     if last_n <= 0:
         return
@@ -24,4 +37,9 @@ def attach_lora_to_last_n(model: nn.Module, last_n: int, rank: int) -> None:
     total = len(layers)
     first = max(0, total - last_n)
     for idx in range(first, total):
-        layers[idx]._lora_registry = {"rank": rank}
+        layer = layers[idx]
+        if hasattr(layer, "self_attn") and hasattr(layer.self_attn, "out_proj"):
+            layer.self_attn.out_proj = _wrap_linear_with_lora(
+                layer.self_attn.out_proj, rank=rank
+            )
+        layer._lora_registry = {"rank": rank}
