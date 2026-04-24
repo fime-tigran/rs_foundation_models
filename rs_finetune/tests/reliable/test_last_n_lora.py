@@ -38,17 +38,24 @@ def test_attach_last_n_rejects_non_transformer_model():
         attach_lora_to_last_n(bare, last_n=2, rank=4)
 
 
-def test_attach_last_n_replaces_linears_on_tail(tiny_mock_multispec_backbone):
-    """Tail layer's attention out_proj becomes a LoRALayer wrapping the
-    original Linear; earlier layers keep plain nn.Linear."""
+def test_attach_last_n_replaces_mlp_linears_on_tail(tiny_mock_multispec_backbone):
+    """Tail layer's MLP linears (linear1, linear2) become LoRALayers
+    wrapping the original weights; earlier layers keep plain nn.Linear.
+
+    Attention out_proj is intentionally left alone because
+    nn.MultiheadAttention reads out_proj.weight directly rather than
+    calling the module."""
     from reliable.lora_layer import LoRALayer
 
     model = tiny_mock_multispec_backbone(n_channels=4, embed_dim=32)
     attach_lora_to_last_n(model, last_n=1, rank=4)
 
     tail = model.transformer.layers[-1]
-    assert isinstance(tail.self_attn.out_proj, LoRALayer)
+    assert isinstance(tail.linear1, LoRALayer)
+    assert isinstance(tail.linear2, LoRALayer)
 
     head = model.transformer.layers[0]
-    assert isinstance(head.self_attn.out_proj, nn.Linear)
-    assert not isinstance(head.self_attn.out_proj, LoRALayer)
+    assert isinstance(head.linear1, nn.Linear)
+    assert isinstance(head.linear2, nn.Linear)
+    assert not isinstance(head.linear1, LoRALayer)
+    assert not isinstance(head.linear2, LoRALayer)
