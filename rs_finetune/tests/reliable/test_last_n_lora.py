@@ -65,7 +65,8 @@ def test_attach_last_n_preserves_forward_at_init(
     tiny_mock_multispec_backbone, synthetic_multispec_batch
 ):
     """With zero-init B and bias preserved, wrapping tail MLP linears must
-    not change the model's forward output."""
+    not change the model's forward output — in eval AND train mode (the
+    latter relies on the conftest fixture's dropout=0.0)."""
     import copy
 
     model = tiny_mock_multispec_backbone(n_channels=4, embed_dim=32)
@@ -74,7 +75,19 @@ def test_attach_last_n_preserves_forward_at_init(
 
     x = synthetic_multispec_batch(n_channels=3)
     channel_ids = [0, 1, 2]
+
+    # Eval-mode equivalence (Module.__init__ default).
     with torch.no_grad():
-        ref_out = reference(x, channel_ids=channel_ids)
-        mod_out = model(x, channel_ids=channel_ids)
-    assert torch.allclose(ref_out, mod_out, atol=1e-5)
+        ref_out_eval = reference(x, channel_ids=channel_ids)
+        mod_out_eval = model(x, channel_ids=channel_ids)
+    assert torch.allclose(ref_out_eval, mod_out_eval, atol=1e-5)
+
+    # Train-mode equivalence — depends on conftest's dropout=0.0 in the
+    # mock backbones, otherwise stochastic dropout would diverge the two
+    # deep-copied instances even with zero-init LoRA.
+    reference.train()
+    model.train()
+    with torch.no_grad():
+        ref_out_train = reference(x, channel_ids=channel_ids)
+        mod_out_train = model(x, channel_ids=channel_ids)
+    assert torch.allclose(ref_out_train, mod_out_train, atol=1e-5)
