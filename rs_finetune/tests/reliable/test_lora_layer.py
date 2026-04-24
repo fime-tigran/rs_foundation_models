@@ -16,3 +16,17 @@ def test_lora_zero_init_forward_matches_base(frozen_pretrained_weight):
     base_out = x @ w.T
     lora_out = lora(x)
     assert torch.allclose(base_out, lora_out, atol=1e-6)
+
+
+def test_lora_with_base_bias_applies_bias(frozen_pretrained_weight):
+    """When a frozen base_bias is passed, zero-init forward equals
+    ``x @ W.T + b`` — bias from the wrapped Linear is preserved."""
+    w = frozen_pretrained_weight(d_out=8, d_in=4)
+    b = torch.randn(8)
+    b.requires_grad_(False)
+    lora = LoRALayer(d_in=4, d_out=8, rank=2, base_weight=w, base_bias=b)
+    assert "base_bias" in dict(lora.named_buffers())
+    assert "base_bias" not in dict(lora.named_parameters())
+    x = torch.randn(3, 4)
+    expected = x @ w.T + b
+    assert torch.allclose(lora(x), expected, atol=1e-6)
