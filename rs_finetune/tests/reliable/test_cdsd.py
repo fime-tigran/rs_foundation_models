@@ -94,3 +94,12 @@ def test_cdsd_loss_scales_with_lambda():
     loss_a = cdsd_loss(student, teacher, lambda_distill=1.0).item()
     loss_b = cdsd_loss(student, teacher, lambda_distill=0.5).item()
     assert abs(loss_b - 0.5 * loss_a) < 1e-5
+
+
+def test_ema_teacher_forward_has_no_grad():
+    student = nn.Linear(8, 4)
+    teacher = EMATeacher(student, momentum=0.99)
+    x = torch.randn(2, 8, requires_grad=True)
+    y = teacher(x)
+    assert y.requires_grad is False
+    assert y.grad_fn is None
