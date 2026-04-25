@@ -28,3 +28,23 @@ def test_compute_activation_null_basis_rejects_non_2d():
     x3d = torch.randn(2, 3, 4)
     with pytest.raises(ValueError, match="must be 2D"):
         compute_activation_null_basis(x3d, null_rank=2)
+
+
+def test_init_lora_a_in_null_space_kills_subset_activations(
+    frozen_pretrained_weight,
+):
+    """After init, (B @ A) @ x ≈ 0 for any x ∈ span(subset activations).
+    Since B is zero at init, the assertion reduces to checking A @ x ≈ 0."""
+    from reliable.lora_layer import LoRALayer
+    from reliable.lora_null_init import init_lora_a_in_null_space
+
+    # Structured activations: signal on first 4 dims, null on last 4 dims.
+    activations = torch.cat(
+        [torch.randn(50, 4), torch.zeros(50, 4)], dim=1
+    )
+    w = frozen_pretrained_weight(d_out=16, d_in=8)
+    lora = LoRALayer(d_in=8, d_out=16, rank=4, base_weight=w)
+    init_lora_a_in_null_space(lora, activations, null_rank=4)
+
+    projected = activations @ lora.A.T  # (50, 4)
+    assert projected.abs().mean() < 1e-4

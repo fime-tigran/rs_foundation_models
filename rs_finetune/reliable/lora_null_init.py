@@ -10,6 +10,8 @@ forward.
 
 import torch
 
+from reliable.lora_layer import LoRALayer
+
 
 def compute_activation_null_basis(
     activations: torch.Tensor, null_rank: int
@@ -26,3 +28,18 @@ def compute_activation_null_basis(
     _U, _S, Vh = torch.linalg.svd(activations, full_matrices=True)
     V = Vh.T
     return V[:, D - null_rank :].contiguous()
+
+
+def init_lora_a_in_null_space(
+    lora: LoRALayer, activations: torch.Tensor, null_rank: int
+) -> None:
+    """Initialise ``lora.A`` so that ``A @ x ≈ 0`` for ``x`` in the span
+    of ``activations``. LoRA ``rank`` must equal ``null_rank``.
+    """
+    if lora.A.shape[0] != null_rank:
+        raise ValueError(
+            f"LoRA rank ({lora.A.shape[0]}) must equal null_rank ({null_rank})"
+        )
+    U_null = compute_activation_null_basis(activations, null_rank=null_rank)
+    with torch.no_grad():
+        lora.A.copy_(U_null.T)  # (null_rank, D)
