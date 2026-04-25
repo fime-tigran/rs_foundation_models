@@ -45,3 +45,18 @@ class LSMMHead(nn.Module):
         """Return non-negative abundances of shape ``(..., n_endmembers)``."""
         raw = self.abundance_predictor(features)
         return F.softplus(raw)
+
+    def reconstruction_loss(
+        self,
+        features: torch.Tensor,
+        x_rgb: torch.Tensor,
+        lambda_lsmm: float,
+    ) -> torch.Tensor:
+        """Squared error between ``x_rgb`` and the SRF-projected mixture
+        ``SRF · E · α``, scaled by ``lambda_lsmm``."""
+        if lambda_lsmm == 0.0:
+            return torch.zeros((), device=features.device, dtype=features.dtype)
+        alpha = self.predict_abundances(features)            # (B, K)
+        spectra = alpha @ self.endmembers.T                  # (B, n_bands)
+        x_recon = spectra @ self.srf_matrix.T                # (B, 3)
+        return lambda_lsmm * F.mse_loss(x_recon, x_rgb)
