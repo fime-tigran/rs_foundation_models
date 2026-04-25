@@ -501,3 +501,11 @@ truth for *what to actually run* on the benchmark.
   `reliable/channel_mask.py`. 22 Phase-1 tests green (70 total in the
   reliable suite). Plan:
   `.cursor/plans/2026-04-25-reliable-lora-foundation-plan.md`.
+- **Phase 2 (Training regularizers) — COMPLETE (2026-04-25).**
+  Shipped: `reliable/cdsd.py` (EMATeacher + channel_dropout + cdsd_loss),
+  `reliable/lsmm_aux_head.py` (LSMMHead with frozen endmembers),
+  `reliable/ch_rs_ft.py` (smooth_channel_tokens + mc_smooth_predict).
+  23 Phase-2 tests green (93 total in the reliable suite). Phase-1 follow-up
+  also landed: `attach_lora_to_last_n` accepts an `adapter_cls` kwarg so
+  OPLoRA reuses the placement helper. Plan:
+  `.cursor/plans/2026-04-25-reliable-training-regularizers-plan.md`.
