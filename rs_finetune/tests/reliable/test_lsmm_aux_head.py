@@ -45,3 +45,18 @@ def test_lsmm_reconstruction_loss_finite_and_lambda_zero_kills():
     assert torch.isfinite(loss)
     loss_zero = head.reconstruction_loss(feats, x_rgb, lambda_lsmm=0.0)
     assert loss_zero.item() == 0.0
+
+
+def test_lsmm_head_loads_endmembers_from_artifact_cache(tmp_artifact_dir):
+    K, n_bands = 8, 12
+    endmembers = torch.randn(n_bands, K)
+    artifact_path = tmp_artifact_dir / "endmembers.pt"
+    torch.save(endmembers, artifact_path)
+
+    loaded = torch.load(artifact_path, weights_only=True)
+    head = LSMMHead(
+        d=32, n_endmembers=K, n_bands=n_bands,
+        srf_matrix=torch.randn(3, n_bands),
+        endmembers=loaded,
+    )
+    assert torch.equal(head.endmembers, endmembers)
