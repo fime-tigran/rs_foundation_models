@@ -15,3 +15,10 @@ def test_hard_channel_mask_is_non_learnable_and_correct():
     expected = torch.zeros(12)
     expected[[0, 1, 2]] = 1.0
     assert torch.equal(mask, expected)
+
+
+def test_hard_channel_mask_rejects_out_of_range_ids():
+    with pytest.raises(ValueError, match="out of range"):
+        build_hard_channel_mask(training_channel_ids=[0, 12], n_channels=12)
+    with pytest.raises(ValueError, match="out of range"):
+        build_hard_channel_mask(training_channel_ids=[-1, 0], n_channels=12)
