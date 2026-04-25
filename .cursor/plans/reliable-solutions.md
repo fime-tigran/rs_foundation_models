@@ -492,3 +492,12 @@ baseline.
 All approach details, code sketches, and arxiv refs live in
 `cross-band-finetune-catalog.md`. This file exists to be the single source of
 truth for *what to actually run* on the benchmark.
+
+## Implementation progress
+
+- **Phase 1 (LoRA foundation) — COMPLETE (2026-04-25).**
+  Shipped: `reliable/lora_layer.py`, `reliable/last_n_placement.py`,
+  `reliable/oplora.py`, `reliable/lora_null_init.py`,
+  `reliable/channel_mask.py`. 22 Phase-1 tests green (70 total in the
+  reliable suite). Plan:
+  `.cursor/plans/2026-04-25-reliable-lora-foundation-plan.md`.
