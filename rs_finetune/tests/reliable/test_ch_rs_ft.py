@@ -80,3 +80,19 @@ def test_mc_smooth_predict_n_mc_one_runs_once():
         n_mc=1, sigma=0.1, p_smooth=0.5,
     )
     assert call_count["n"] == 1
+
+
+def test_mc_smooth_predict_rejects_n_mc_zero():
+    import pytest
+
+    from reliable.ch_rs_ft import mc_smooth_predict
+
+    class _Stub(torch.nn.Module):
+        def forward(self, x):
+            return torch.zeros(x.shape[0], 5)
+
+    with pytest.raises(ValueError, match="n_mc"):
+        mc_smooth_predict(
+            _Stub(), torch.zeros(1, 4, 8),
+            n_mc=0, sigma=0.1, p_smooth=0.5,
+        )
