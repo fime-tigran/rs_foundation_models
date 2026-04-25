@@ -48,3 +48,14 @@ def test_init_lora_a_in_null_space_kills_subset_activations(
 
     projected = activations @ lora.A.T  # (50, 4)
     assert projected.abs().mean() < 1e-4
+
+
+def test_init_lora_a_rank_mismatch_raises(frozen_pretrained_weight):
+    from reliable.lora_layer import LoRALayer
+    from reliable.lora_null_init import init_lora_a_in_null_space
+
+    activations = torch.randn(50, 8)
+    w = frozen_pretrained_weight(d_out=16, d_in=8)
+    lora = LoRALayer(d_in=8, d_out=16, rank=3, base_weight=w)
+    with pytest.raises(ValueError, match="rank"):
+        init_lora_a_in_null_space(lora, activations, null_rank=5)
