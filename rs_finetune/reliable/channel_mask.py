@@ -1,0 +1,20 @@
+"""#2 Hard Channel Mask — non-learnable per-channel gate for LoRA residuals."""
+
+from collections.abc import Iterable
+
+import torch
+
+
+def build_hard_channel_mask(
+    training_channel_ids: Iterable[int], n_channels: int
+) -> torch.Tensor:
+    ids = list(training_channel_ids)
+    for c in ids:
+        if not 0 <= c < n_channels:
+            raise ValueError(
+                f"Channel id {c} out of range [0, {n_channels})"
+            )
+    mask = torch.zeros(n_channels)
+    mask[ids] = 1.0
+    mask.requires_grad_(False)
+    return mask
