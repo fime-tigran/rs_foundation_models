@@ -39,3 +39,31 @@ def test_ema_teacher_momentum_zero_copies_student():
     teacher.update(student)
     for sp, tp in zip(student.parameters(), teacher.module.parameters()):
         assert torch.allclose(sp, tp)
+
+
+def test_channel_dropout_train_drops_at_least_one():
+    from reliable.cdsd import channel_dropout
+
+    x = torch.ones(2, 4, 8, 8)
+    torch.manual_seed(0)
+    y = channel_dropout(x, p=0.5, min_keep=1, training=True)
+    # At least one channel was zeroed in each batch element.
+    for b in range(2):
+        zeroed = (y[b].abs().sum(dim=(1, 2)) == 0).sum().item()
+        assert zeroed >= 1
+
+
+def test_channel_dropout_eval_passthrough():
+    from reliable.cdsd import channel_dropout
+
+    x = torch.randn(2, 4, 8, 8)
+    y = channel_dropout(x, p=0.5, min_keep=1, training=False)
+    assert torch.equal(x, y)
+
+
+def test_channel_dropout_p_zero_passthrough():
+    from reliable.cdsd import channel_dropout
+
+    x = torch.randn(2, 4, 8, 8)
+    y = channel_dropout(x, p=0.0, min_keep=1, training=True)
+    assert torch.equal(x, y)

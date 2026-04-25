@@ -43,3 +43,26 @@ class EMATeacher(nn.Module):
     @torch.no_grad()
     def forward(self, *args, **kwargs) -> torch.Tensor:
         return self.module(*args, **kwargs)
+
+
+def channel_dropout(
+    x: torch.Tensor, p: float, min_keep: int, training: bool
+) -> torch.Tensor:
+    """Randomly zero a subset of channels in ``x`` (shape ``(B, C, *)``).
+
+    No-op when ``training is False`` or ``p == 0``. Always retains at
+    least ``min_keep`` channels per batch element.
+    """
+    if not training or p == 0.0:
+        return x
+    if not 0.0 < p <= 1.0:
+        raise ValueError(f"p must be in (0, 1], got {p}")
+    B, C = x.shape[0], x.shape[1]
+    n_drop = max(0, min(C - min_keep, int(round(p * C))))
+    if n_drop == 0:
+        return x
+    out = x.clone()
+    for b in range(B):
+        idx = torch.randperm(C, device=x.device)[:n_drop]
+        out[b, idx] = 0.0
+    return out
