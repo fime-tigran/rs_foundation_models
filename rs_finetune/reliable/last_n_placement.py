@@ -13,8 +13,6 @@ Attention projections are not wrapped because ``nn.MultiheadAttention``
 introspects ``out_proj.weight`` directly.
 """
 
-from typing import Type
-
 import torch.nn as nn
 
 from reliable.lora_layer import LoRALayer
@@ -23,7 +21,7 @@ from reliable.lora_layer import LoRALayer
 def _wrap_linear_with_adapter(
     linear: nn.Linear,
     rank: int,
-    adapter_cls: Type[nn.Module],
+    adapter_cls: type[nn.Module],
     **adapter_kwargs,
 ) -> nn.Module:
     base_bias = (
@@ -46,7 +44,7 @@ def attach_lora_to_last_n(
     model: nn.Module,
     last_n: int,
     rank: int,
-    adapter_cls: Type[nn.Module] = LoRALayer,
+    adapter_cls: type[nn.Module] = LoRALayer,
     **adapter_kwargs,
 ) -> None:
     """Attach adapters to the last ``last_n`` transformer layers' MLP

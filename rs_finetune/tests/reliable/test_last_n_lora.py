@@ -110,3 +110,6 @@ def test_attach_last_n_with_oplora_adapter_class(
     assert not isinstance(tail.linear1, LoRALayer)
     head = model.transformer.layers[0]
     assert isinstance(head.linear1, nn.Linear)
+    # Locks adapter_cls plumb-through: registry must record the class name
+    # passed via the kwarg, otherwise **adapter_kwargs forwarding regressed.
+    assert tail._lora_registry["adapter_cls"] == "OPLoRALayer"
