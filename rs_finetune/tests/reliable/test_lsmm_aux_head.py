@@ -17,3 +17,16 @@ def test_lsmm_head_endmembers_and_srf_are_buffers():
     params = dict(head.named_parameters())
     assert "endmembers" in bufs and "endmembers" not in params
     assert "srf_matrix" in bufs and "srf_matrix" not in params
+
+
+def test_lsmm_head_abundances_are_non_negative():
+    K, D, n_bands = 8, 32, 12
+    head = LSMMHead(
+        d=D, n_endmembers=K, n_bands=n_bands,
+        srf_matrix=torch.randn(3, n_bands),
+        endmembers=torch.randn(n_bands, K),
+    )
+    feats = torch.randn(4, D) * 5.0  # large negative inputs possible
+    alpha = head.predict_abundances(feats)
+    assert alpha.shape == (4, K)
+    assert (alpha >= 0).all()
