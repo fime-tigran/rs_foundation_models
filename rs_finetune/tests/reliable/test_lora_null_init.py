@@ -57,5 +57,5 @@ def test_init_lora_a_rank_mismatch_raises(frozen_pretrained_weight):
     activations = torch.randn(50, 8)
     w = frozen_pretrained_weight(d_out=16, d_in=8)
     lora = LoRALayer(d_in=8, d_out=16, rank=3, base_weight=w)
-    with pytest.raises(ValueError, match="rank"):
+    with pytest.raises(ValueError, match=r"must equal null_rank"):
         init_lora_a_in_null_space(lora, activations, null_rank=5)
