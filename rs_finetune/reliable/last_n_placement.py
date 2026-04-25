@@ -2,37 +2,59 @@
 
 Attaches LoRA adapters to the last N transformer layers' MLP linears
 (``linear1`` and ``linear2``) so earlier layers stay bit-identical to the
-pretrained model. Attention projections are not wrapped because
-``nn.MultiheadAttention`` introspects ``out_proj.weight`` directly.
+pretrained model.
+
+The adapter class is injectable via ``adapter_cls``; defaults to
+``reliable.lora_layer.LoRALayer``. Passing ``OPLoRALayer`` (with the
+required ``preserve_k`` kwarg) places the OPLoRA variant via the same
+code path.
+
+Attention projections are not wrapped because ``nn.MultiheadAttention``
+introspects ``out_proj.weight`` directly.
 """
+
+from typing import Type
 
 import torch.nn as nn
 
 from reliable.lora_layer import LoRALayer
 
 
-def _wrap_linear_with_lora(linear: nn.Linear, rank: int) -> LoRALayer:
+def _wrap_linear_with_adapter(
+    linear: nn.Linear,
+    rank: int,
+    adapter_cls: Type[nn.Module],
+    **adapter_kwargs,
+) -> nn.Module:
     base_bias = (
         linear.bias.detach().clone() if linear.bias is not None else None
     )
-    return LoRALayer(
+    return adapter_cls(
         d_in=linear.in_features,
         d_out=linear.out_features,
         rank=rank,
         base_weight=linear.weight.detach().clone(),
         base_bias=base_bias,
+        **adapter_kwargs,
     )
 
 
 _LORA_TARGETS = ("linear1", "linear2")
 
 
-def attach_lora_to_last_n(model: nn.Module, last_n: int, rank: int) -> None:
-    """Attach LoRA adapters to the last ``last_n`` transformer layers' MLP
+def attach_lora_to_last_n(
+    model: nn.Module,
+    last_n: int,
+    rank: int,
+    adapter_cls: Type[nn.Module] = LoRALayer,
+    **adapter_kwargs,
+) -> None:
+    """Attach adapters to the last ``last_n`` transformer layers' MLP
     projections.
 
     No-op when ``last_n <= 0``. Raises :class:`ValueError` when the model
-    does not expose a ``transformer.layers`` attribute.
+    does not expose a ``transformer.layers`` attribute. Extra kwargs (e.g.
+    ``preserve_k`` for OPLoRA) are forwarded to ``adapter_cls.__init__``.
     """
     if last_n <= 0:
         return
@@ -47,5 +69,16 @@ def attach_lora_to_last_n(model: nn.Module, last_n: int, rank: int) -> None:
         for attr in _LORA_TARGETS:
             target = getattr(layer, attr, None)
             if isinstance(target, nn.Linear):
-                setattr(layer, attr, _wrap_linear_with_lora(target, rank=rank))
-        layer._lora_registry = {"rank": rank, "targets": list(_LORA_TARGETS)}
+                setattr(
+                    layer,
+                    attr,
+                    _wrap_linear_with_adapter(
+                        target, rank=rank, adapter_cls=adapter_cls,
+                        **adapter_kwargs,
+                    ),
+                )
+        layer._lora_registry = {
+            "rank": rank,
+            "targets": list(_LORA_TARGETS),
+            "adapter_cls": adapter_cls.__name__,
+        }

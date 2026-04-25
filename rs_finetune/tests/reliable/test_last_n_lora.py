@@ -91,3 +91,22 @@ def test_attach_last_n_preserves_forward_at_init(
         ref_out_train = reference(x, channel_ids=channel_ids)
         mod_out_train = model(x, channel_ids=channel_ids)
     assert torch.allclose(ref_out_train, mod_out_train, atol=1e-5)
+
+
+def test_attach_last_n_with_oplora_adapter_class(
+    tiny_mock_multispec_backbone,
+):
+    """attach_lora_to_last_n accepts an adapter_cls kwarg so OPLoRALayer
+    can be placed via the same code path as LoRALayer."""
+    from reliable.lora_layer import LoRALayer
+    from reliable.oplora import OPLoRALayer
+
+    model = tiny_mock_multispec_backbone(n_channels=4, embed_dim=32)
+    attach_lora_to_last_n(
+        model, last_n=1, rank=4, adapter_cls=OPLoRALayer, preserve_k=2
+    )
+    tail = model.transformer.layers[-1]
+    assert isinstance(tail.linear1, OPLoRALayer)
+    assert not isinstance(tail.linear1, LoRALayer)
+    head = model.transformer.layers[0]
+    assert isinstance(head.linear1, nn.Linear)
