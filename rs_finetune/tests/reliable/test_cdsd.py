@@ -67,3 +67,30 @@ def test_channel_dropout_p_zero_passthrough():
     x = torch.randn(2, 4, 8, 8)
     y = channel_dropout(x, p=0.0, min_keep=1, training=True)
     assert torch.equal(x, y)
+
+
+def test_cdsd_loss_zero_when_tokens_match():
+    from reliable.cdsd import cdsd_loss
+
+    tokens = torch.randn(2, 16, 32)
+    loss = cdsd_loss(tokens, tokens.clone(), lambda_distill=1.0)
+    assert loss.item() < 1e-5
+
+
+def test_cdsd_loss_positive_when_tokens_differ():
+    from reliable.cdsd import cdsd_loss
+
+    student = torch.randn(2, 16, 32)
+    teacher = torch.randn(2, 16, 32)
+    loss = cdsd_loss(student, teacher, lambda_distill=1.0)
+    assert loss.item() > 0
+
+
+def test_cdsd_loss_scales_with_lambda():
+    from reliable.cdsd import cdsd_loss
+
+    student = torch.randn(2, 16, 32)
+    teacher = torch.randn(2, 16, 32)
+    loss_a = cdsd_loss(student, teacher, lambda_distill=1.0).item()
+    loss_b = cdsd_loss(student, teacher, lambda_distill=0.5).item()
+    assert abs(loss_b - 0.5 * loss_a) < 1e-5

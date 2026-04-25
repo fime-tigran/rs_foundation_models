@@ -15,6 +15,7 @@ import copy
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class EMATeacher(nn.Module):
@@ -66,3 +67,23 @@ def channel_dropout(
         idx = torch.randperm(C, device=x.device)[:n_drop]
         out[b, idx] = 0.0
     return out
+
+
+def cdsd_loss(
+    student_tokens: torch.Tensor,
+    teacher_tokens: torch.Tensor,
+    lambda_distill: float,
+) -> torch.Tensor:
+    """Mean cosine distance between student and teacher patch tokens,
+    scaled by ``lambda_distill``.
+
+    Both inputs have shape ``(B, N, D)``. Returns a scalar loss tensor.
+    """
+    if student_tokens.shape != teacher_tokens.shape:
+        raise ValueError(
+            f"shape mismatch: student {tuple(student_tokens.shape)} vs "
+            f"teacher {tuple(teacher_tokens.shape)}"
+        )
+    cos_sim = F.cosine_similarity(student_tokens, teacher_tokens, dim=-1)
+    distance = 1.0 - cos_sim
+    return lambda_distill * distance.mean()
