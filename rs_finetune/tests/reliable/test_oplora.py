@@ -22,3 +22,13 @@ def test_build_oplora_projectors_rejects_out_of_range_k(frozen_pretrained_weight
         build_oplora_projectors(w, preserve_k=100)
     with pytest.raises(ValueError, match="preserve_k"):
         build_oplora_projectors(w, preserve_k=-1)
+
+
+def test_oplora_layer_zero_init_forward_matches_base(frozen_pretrained_weight):
+    from reliable.oplora import OPLoRALayer
+
+    w = frozen_pretrained_weight(d_out=16, d_in=8)
+    layer = OPLoRALayer(d_in=8, d_out=16, rank=4, base_weight=w, preserve_k=3)
+    x = torch.randn(4, 8)
+    base_out = x @ w.T
+    assert torch.allclose(layer(x), base_out, atol=1e-5)
